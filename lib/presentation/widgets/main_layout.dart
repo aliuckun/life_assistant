@@ -1,10 +1,15 @@
-// lib/presentation/widgets/main_layout.dart
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+// Proje adınıza göre import yolunu kontrol edin: 'package:life_assistant/...'
+import 'package:life_assistant/core/providers/favorite_pages_provider.dart';
+import 'navigation_drawer_widget.dart';
 
-class MainLayout extends StatelessWidget {
+// ConsumerWidget olarak değiştirildi çünkü Riverpod kullanıyor
+class MainLayout extends ConsumerWidget {
   final Widget child;
-  final int selectedIndex; // Alt bant için seçili index
+  final int
+  selectedIndex; // Alt navigasyon bandında seçili olan sayfanın index'i
 
   const MainLayout({
     super.key,
@@ -12,85 +17,68 @@ class MainLayout extends StatelessWidget {
     required this.selectedIndex,
   });
 
-  // Favori Sayfalar (Alt Navigasyon İçin)
-  static const List<Map<String, dynamic>> _navItems = [
-    {'icon': Icons.home, 'label': 'Ana Sayfa', 'path': '/home'},
-    {'icon': Icons.attach_money, 'label': 'Para Takibi', 'path': '/money'},
-    {'icon': Icons.checklist, 'label': 'Alışkanlık', 'path': '/habits'},
-    // ... İleride eklenecek favori sayfalar
-  ];
-
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    // ⭐️ Favori sayfaların listesini dinle (BottomNavigationBar'ı dinamik yapar)
+    final favPages = ref.watch(favoritePagesProvider);
+
     return Scaffold(
-      // Sol üst hamburger menü (resimdeki yapı) için AppBar
-      appBar: AppBar(
-        automaticallyImplyLeading: false, // Varsayılan geri tuşunu kaldır
-        title: Row(
-          children: [
-            // Resimdeki hamburger menü ikonu
-            IconButton(
-              icon: const Icon(Icons.menu),
-              onPressed: () {
-                // Burada Navigation Drawer'ı açma veya özel menüyü gösterme mantığı olacak
-                Scaffold.of(context).openDrawer();
-              },
-            ),
-            const Spacer(), // Başlık ile araya boşluk
-          ],
-        ),
-      ),
       // Sol üstteki menü tıklandığında açılacak Drawer
       drawer: const NavigationDrawerWidget(),
 
-      // Sayfanın ana içeriği
+      appBar: AppBar(
+        // 1. Çift ikonu ve otomatik geri ok dönüşümünü engelle
+        automaticallyImplyLeading: false,
+
+        // 2. Leading: Sol Başlangıç Bölümü. Buraya sabit hamburger ikonumuzu koyuyoruz.
+        leading: Builder(
+          builder: (BuildContext innerContext) {
+            // Builder kullanıyoruz, çünkü Drawer'ı açmak için
+            // Scaffold'a ait bir BuildContext'e (innerContext) ihtiyacımız var.
+            return IconButton(
+              icon: const Icon(
+                Icons.menu,
+              ), // Hamburger ikonu her zaman sabit kalır
+              onPressed: () {
+                // Tıklandığında Drawer'ı açar.
+                // Kapatma, Flutter'ın varsayılan sola kaydırma jesti ve
+                // Drawer dışına tıklama ile otomatik olarak sağlanır.
+                Scaffold.of(innerContext).openDrawer();
+              },
+            );
+          },
+        ),
+
+        // Başlık kısmı, Hamburger ikonundan sonra görünür
+        title: const Text('Life Assistant'),
+      ),
+
       body: child,
 
-      // Favori sayfalara hızlı geçiş için BottomNavigationBar
+      // Dinamik BottomNavigationBar
       bottomNavigationBar: BottomNavigationBar(
+        // Alt bandın sadece favori sayfa sayısı kadar itemi olmalıdır.
+        // Index değeri, favori sayfalar listesindeki konuma göre ayarlanır.
         currentIndex: selectedIndex,
+
+        // Temanın karanlık moda uygun ayarlanması (tema dosyasında da yapılmalı)
+        type: BottomNavigationBarType.fixed, // Daha fazla item için sabit tip
+
         onTap: (index) {
-          // Alt banttaki sayfaya GoRouter ile geçiş yap
-          context.go(_navItems[index]['path']);
+          // Güncel favori listesinden yolu al ve GoRouter ile geçiş yap
+          // Bu, alt navigasyon bandını kullanır.
+          if (index >= 0 && index < favPages.length) {
+            context.go(favPages[index].path);
+          }
         },
-        items: _navItems.map((item) {
+
+        // Dinamik olarak favori sayfalardan BottomNavigationBarItem'ları oluştur
+        items: favPages.map((page) {
           return BottomNavigationBarItem(
-            icon: Icon(item['icon']),
-            label: item['label'],
+            icon: Icon(page.icon),
+            label: page.title,
           );
         }).toList(),
-      ),
-    );
-  }
-}
-
-// Menü çekmecesi (Navigation Drawer) örneği
-class NavigationDrawerWidget extends StatelessWidget {
-  const NavigationDrawerWidget({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Drawer(
-      child: ListView(
-        padding: EdgeInsets.zero,
-        children: <Widget>[
-          const DrawerHeader(
-            decoration: BoxDecoration(color: Colors.blue),
-            child: Text(
-              'Tüm Sayfalar/Ayarlar',
-              style: TextStyle(color: Colors.white),
-            ),
-          ),
-          ListTile(
-            title: const Text('Para Takibi'),
-            onTap: () => context.go('/money'),
-          ),
-          ListTile(
-            title: const Text('Alışkanlık Takibi'),
-            onTap: () => context.go('/habits'),
-          ),
-          // ... Diğer tüm sayfalar
-        ],
       ),
     );
   }

@@ -1,10 +1,10 @@
 // lib/core/router/app_router.dart
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:app_name/presentation/widgets/main_layout.dart';
-import 'package:app_name/features/money_tracking/presentation/pages/money_tracker_page.dart';
-import 'package:app_name/features/habit_tracker/presentation/pages/habit_tracker_page.dart';
-import 'package:app_name/presentation/pages/home_page.dart';
+import 'package:life_assistant/presentation/widgets/main_layout.dart';
+import 'package:life_assistant/features/money_tracking/presentation/pages/money_tracker_page.dart';
+import 'package:life_assistant/features/habit_tracker/presentation/pages/habit_tracker_page.dart';
+import 'package:life_assistant/presentation/pages/home_page.dart';
 
 class AppRouter {
   static final GoRouter router = GoRouter(
