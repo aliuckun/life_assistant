@@ -1,0 +1,74 @@
+# Miscellaneous
+*.class
+*.log
+*.pyc
+*.swp
+.DS_Store
+.atom/
+.build/
+.buildlog/
+.history
+.svn/
+.swiftpm/
+migrate_working_dir/
+
+# IntelliJ related
+*.iml
+*.ipr
+*.iws
+.idea/
+
+# VS Code (isteğe bağlı olarak yorum satırını kaldırabilirsin)
+#.vscode/
+
+# Flutter/Dart/Pub related
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+build/
+**/doc/api/
+**/ios/Flutter/.last_build_id
+
+# Generated plugin registrant
+lib/generated_plugin_registrant.dart
+
+# Symbolication related
+app.*.symbols
+
+# Obfuscation related
+app.*.map.json
+
+# Android build outputs
+/android/app/debug
+/android/app/profile
+/android/app/release
+
+# iOS build outputs
+/ios/Flutter/App.framework
+/ios/Flutter/Flutter.framework
+/ios/Flutter/Flutter.podspec
+/ios/Flutter/Generated.xcconfig
+/ios/Flutter/ephemeral/
+Pods/
+podfile.lock
+
+# macOS build outputs
+/macos/Flutter/ephemeral/
+
+# Windows build outputs
+/windows/flutter/ephemeral/
+
+# Linux build outputs
+/linux/flutter/ephemeral/
+
+# Web build outputs
+/web/.dart_tool/
+.web_release/
+
+# Firebase or other secrets
+*.env
+*.keys.json
+*.pem
