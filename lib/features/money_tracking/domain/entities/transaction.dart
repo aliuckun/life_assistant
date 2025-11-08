@@ -59,4 +59,21 @@ class RecurringPayment {
     required this.category,
     required this.paymentDayOfMonth,
   });
+
+  // 🚨 Hata Çözümü: copyWith metodu eklendi
+  RecurringPayment copyWith({
+    String? id,
+    String? description,
+    double? amount,
+    String? category,
+    int? paymentDayOfMonth,
+  }) {
+    return RecurringPayment(
+      id: id ?? this.id,
+      description: description ?? this.description,
+      amount: amount ?? this.amount,
+      category: category ?? this.category,
+      paymentDayOfMonth: paymentDayOfMonth ?? this.paymentDayOfMonth,
+    );
+  }
 }

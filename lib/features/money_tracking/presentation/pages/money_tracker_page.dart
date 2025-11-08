@@ -6,7 +6,11 @@ import '../widgets/transaction_card.dart';
 import '../widgets/summary_section.dart';
 import '../widgets/total_expense_card.dart';
 import '../../domain/entities/transaction.dart';
-import '../widgets/add_transaction_modal.dart'; // Ekle
+import '../widgets/add_transaction_modal.dart';
+import '../widgets/recurring_payment_card.dart';
+import '../widgets/add_recurring_payment_modal.dart';
+import '../widgets/edit_transaction_modal.dart';
+import '../widgets/edit_recurring_payment_modal.dart'; // 🚨 Yeni Düzenleme Modalını Ekle
 
 class MoneyTrackerPage extends ConsumerStatefulWidget {
   const MoneyTrackerPage({super.key});
@@ -36,7 +40,6 @@ class _MoneyTrackerPageState extends ConsumerState<MoneyTrackerPage> {
     final currentScroll = _scrollController.position.pixels;
 
     if (maxScroll - currentScroll <= _scrollThreshold) {
-      // 🚨 Hata Çözümü: Metot adı düzeltildi
       ref.read(moneyTrackerNotifierProvider.notifier).fetchNextTransactions();
     }
   }
@@ -44,6 +47,7 @@ class _MoneyTrackerPageState extends ConsumerState<MoneyTrackerPage> {
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(moneyTrackerNotifierProvider);
+    final recurringPayments = state.recurringPayments;
 
     if (state.isLoadingInitial) {
       return const Center(child: CircularProgressIndicator());
@@ -52,9 +56,11 @@ class _MoneyTrackerPageState extends ConsumerState<MoneyTrackerPage> {
     return RefreshIndicator(
       onRefresh: () async {
         final notifier = ref.read(moneyTrackerNotifierProvider.notifier);
-        // 🚨 Hata Çözümü: Metot adları düzeltildi
+        // Tüm verileri ve faturaları yeniden çek
         await notifier.fetchInitialTransactions();
         await notifier.fetchTotalExpense();
+        await notifier.fetchExpenseSummary();
+        await notifier.fetchRecurringPayments();
       },
       child: Stack(
         children: [
@@ -69,8 +75,20 @@ class _MoneyTrackerPageState extends ConsumerState<MoneyTrackerPage> {
                     totalExpense: state.totalExpense,
                     resetDay: state.resetDay,
                   ),
+
                   const SizedBox(height: 20),
-                  const SummarySection(),
+                  const SummarySection(), // 🚨 Grafik burada
+                  const SizedBox(height: 20),
+
+                  // Fatura Bölümü
+                  _buildRecurringPaymentsSection(
+                    context,
+                    ref,
+                    recurringPayments,
+                  ),
+
+                  // ❌ ÇİFT GRAFİK HATA ÇÖZÜMÜ: Bu SummarySection'ı sildik
+                  // const SizedBox(height: 20),
                   const SizedBox(height: 20),
                   const Text(
                     'Tüm İşlemler',
@@ -93,9 +111,7 @@ class _MoneyTrackerPageState extends ConsumerState<MoneyTrackerPage> {
                           child: Center(child: CircularProgressIndicator()),
                         );
                       }
-
                       final transaction = state.transactions[index];
-
                       return TransactionCard(
                         transaction: transaction,
                         onDelete: (id) => _deleteTransaction(context, ref, id),
@@ -124,15 +140,12 @@ class _MoneyTrackerPageState extends ConsumerState<MoneyTrackerPage> {
             bottom: 20,
             right: 20,
             child: FloatingActionButton(
-              heroTag:
-                  'add_transaction', // Birden fazla FAB varsa heroTag ekleyin
+              heroTag: 'add_transaction',
               onPressed: () {
-                // 🚨 Yeni işlem ekleme modalı açılıyor
                 showModalBottomSheet(
                   context: context,
-                  isScrollControlled:
-                      true, // Klavye açılınca ekranı kaydırabilmek için
-                  backgroundColor: Colors.grey[900], // Koyu tema ile uyumlu
+                  isScrollControlled: true,
+                  backgroundColor: Colors.grey[900],
                   shape: const RoundedRectangleBorder(
                     borderRadius: BorderRadius.vertical(
                       top: Radius.circular(25.0),
@@ -158,6 +171,98 @@ class _MoneyTrackerPageState extends ConsumerState<MoneyTrackerPage> {
     WidgetRef ref,
     MoneyTransaction transaction,
   ) {
-    debugPrint('Editing transaction: ${transaction.id}');
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.grey[900],
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(25.0)),
+      ),
+      builder: (context) => EditTransactionModal(transaction: transaction),
+    );
+  }
+
+  // 🚨 YENİ METOT: Fatura Düzenleme Modalı
+  void _showEditRecurringPaymentDialog(
+    BuildContext context,
+    WidgetRef ref,
+    RecurringPayment payment,
+  ) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.grey[900],
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(25.0)),
+      ),
+      // 🚨 EditRecurringPaymentModal'ı aç
+      builder: (context) => EditRecurringPaymentModal(payment: payment),
+    );
+  }
+
+  // Fatura Bölümünü Oluşturma
+  Widget _buildRecurringPaymentsSection(
+    BuildContext context,
+    WidgetRef ref,
+    List<RecurringPayment> payments,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              'Tekrar Eden Ödemeler (Faturalar)',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.white70,
+              ),
+            ),
+            // Yeni fatura ekleme butonu
+            IconButton(
+              icon: const Icon(
+                Icons.add_box_outlined,
+                color: Colors.indigoAccent,
+              ),
+              onPressed: () {
+                showModalBottomSheet(
+                  context: context,
+                  isScrollControlled: true,
+                  backgroundColor: Colors.grey[900],
+                  shape: const RoundedRectangleBorder(
+                    borderRadius: BorderRadius.vertical(
+                      top: Radius.circular(25.0),
+                    ),
+                  ),
+                  builder: (context) => const AddRecurringPaymentModal(),
+                );
+              },
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+
+        if (payments.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 10.0),
+            child: Text(
+              'Henüz tanımlı fatura yok. Sağdaki butonla ekleyin.',
+              style: TextStyle(color: Colors.grey[500]),
+            ),
+          )
+        else
+          ...payments
+              .map(
+                (p) => RecurringPaymentCard(
+                  payment: p,
+                  // 🚨 Fatura kartına tıklandığında düzenleme modalını aç
+                  onTap: () => _showEditRecurringPaymentDialog(context, ref, p),
+                ),
+              )
+              .toList(),
+      ],
+    );
   }
 }

@@ -21,6 +21,10 @@ abstract class MoneyRepository {
   // Otomatik Ödemeler
   Future<List<RecurringPayment>> getRecurringPayments();
   Future<void> addRecurringPayment(RecurringPayment payment);
+  // 🚨 Yeni metod tanımı
+  Future<void> deleteRecurringPayment(String id);
+  // 🚨 İleride düzenleme için:
+  Future<void> updateRecurringPayment(RecurringPayment payment);
 
   Future<List<MoneyTransaction>> getAllTransactions();
 }

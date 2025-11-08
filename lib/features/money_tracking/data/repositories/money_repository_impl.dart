@@ -9,6 +9,9 @@ import '../../../../main.dart' show appId;
 // 🚨 LOKAL VERİ KAYNAĞI (Simüle Edilmiş Veritabanı)
 List<MoneyTransaction> _localTransactions = [];
 
+// Lokal Yinelenen Ödeme Listesi (Simüle edilmiş)
+List<RecurringPayment> _localRecurringPayments = [];
+
 class MoneyRepositoryImpl implements MoneyRepository {
   // 🚨 Lokal çalışacağı için Firebase değişkenleri kaldırıldı.
   final String _userId = 'local_user'; // Artık sabit bir ID kullanıyoruz
@@ -94,29 +97,33 @@ class MoneyRepositoryImpl implements MoneyRepository {
 
   @override
   Future<List<RecurringPayment>> getRecurringPayments() async {
-    // Lokal tutulan bir liste döndürelim
-    return const [
-      RecurringPayment(
-        id: 'R1',
-        description: 'Netflix',
-        amount: 150.0,
-        category: 'Eğlence',
-        paymentDayOfMonth: 10,
-      ),
-      RecurringPayment(
-        id: 'R2',
-        description: 'Spor Salonu',
-        amount: 400.0,
-        category: 'Sağlık',
-        paymentDayOfMonth: 5,
-      ),
-    ];
+    await Future.delayed(const Duration(milliseconds: 200));
+    return _localRecurringPayments.toList(); // 🚨 Doğru listeyi döndür
   }
 
   @override
   Future<void> addRecurringPayment(RecurringPayment payment) async {
-    // Şimdilik sadece logluyoruz, ekleme mantığı karmaşıklaşır
-    debugPrint('Recurring payment added locally: ${payment.description}');
+    // 🚨 Yeni ID oluştur ve listeye ekle
+    final newId = 'R${DateTime.now().millisecondsSinceEpoch}';
+    final newPayment = payment.copyWith(id: newId);
+    _localRecurringPayments.add(newPayment);
+    debugPrint('Recurring payment added locally: ${newId}');
+  }
+
+  // 🚨 Yeni metotlar (Notifier'a eklediklerimiz için)
+  @override
+  Future<void> updateRecurringPayment(RecurringPayment payment) async {
+    final index = _localRecurringPayments.indexWhere((p) => p.id == payment.id);
+    if (index != -1) {
+      _localRecurringPayments[index] = payment;
+    }
+    debugPrint('Recurring payment updated: ${payment.id}');
+  }
+
+  @override
+  Future<void> deleteRecurringPayment(String id) async {
+    _localRecurringPayments.removeWhere((p) => p.id == id);
+    debugPrint('Recurring payment deleted: $id');
   }
 
   @override
