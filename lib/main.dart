@@ -3,18 +3,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
+import 'core/services/notification_service.dart'; // 👈 YENİ
 
-// 🚨 Firebase bağımlılıkları ve başlatma kodları kaldırıldı.
-
-// Global değişkenler tanımlanmaya devam ediyor (diğer dosyalar için lazım)
-// Ancak artık Firebase'e ait değiller.
 const String appId = String.fromEnvironment(
   'APP_ID',
   defaultValue: 'default-app-id',
 );
 
-void main() {
-  // WidgetsFlutterBinding.ensureInitialized() artık gerekli değil
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // 🔔 Bildirim servisini başlat
+  await NotificationService().initialize();
+
   runApp(const ProviderScope(child: MyApp()));
 }
 
@@ -27,6 +28,7 @@ class MyApp extends StatelessWidget {
       title: 'Kişisel Takip Uygulaması',
       theme: AppTheme.lightTheme,
       routerConfig: AppRouter.router,
+      debugShowCheckedModeBanner: false,
     );
   }
 }

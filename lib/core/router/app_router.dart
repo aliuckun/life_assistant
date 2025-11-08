@@ -4,7 +4,8 @@ import 'package:go_router/go_router.dart';
 import 'package:life_assistant/presentation/widgets/main_layout.dart';
 import 'package:life_assistant/features/money_tracking/presentation/pages/money_tracker_page.dart';
 import 'package:life_assistant/features/habit_tracker/presentation/pages/habit_tracker_page.dart';
-import 'package:life_assistant/presentation/pages/home_page.dart';
+import 'package:life_assistant/features/home/presentation/pages/home_page.dart';
+import 'package:life_assistant/features/distraction_timer/presentation/pages/distraction_timer_page.dart';
 
 class AppRouter {
   static final GoRouter router = GoRouter(
@@ -12,13 +13,13 @@ class AppRouter {
     routes: [
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) {
-          // MainLayout'u kullanarak alt navigasyon bandını yönet
+          // ✅ ÇÖZÜM: navigationShell'i child olarak, currentIndex'i selectedIndex olarak gönder
           return MainLayout(
             child: navigationShell,
             selectedIndex: navigationShell.currentIndex,
           );
         },
-        // Alt navigasyon bandında görünecek sayfalar (Favoriler)
+        // Alt navigasyon bandında görünecek sayfalar
         branches: [
           // Ana Sayfa (Index 0)
           StatefulShellBranch(
@@ -40,7 +41,17 @@ class AppRouter {
               ),
             ],
           ),
-          // Alışkanlık Takibi (Index 2)
+          // ODAKLANMA KALKANI (Index 2)
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/timer',
+                pageBuilder: (context, state) =>
+                    const NoTransitionPage(child: DistractionTimerPage()),
+              ),
+            ],
+          ),
+          // Alışkanlık Takibi (Index 3)
           StatefulShellBranch(
             routes: [
               GoRoute(
@@ -52,8 +63,6 @@ class AppRouter {
           ),
         ],
       ),
-      // ... Alt Navigasyon Bandında Olmayacak Diğer Sayfalar Buraya Eklenebilir
-      // Örneğin: GoRoute(path: '/settings', builder: (context, state) => const SettingsPage()),
     ],
   );
 }
