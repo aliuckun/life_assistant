@@ -11,7 +11,6 @@ class DistractionTimerPage extends ConsumerStatefulWidget {
       _DistractionTimerPageState();
 }
 
-// WidgetsBindingObserver ile uygulama yaşam döngüsünü dinleriz
 class _DistractionTimerPageState extends ConsumerState<DistractionTimerPage>
     with WidgetsBindingObserver {
   @override
@@ -19,19 +18,12 @@ class _DistractionTimerPageState extends ConsumerState<DistractionTimerPage>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
 
-    // Limit aşıldığında modal göstermek için dinleyici
-    ref.listenManual(distractionTimerProvider, (previous, next) {
-      // Limit aşıldıysa ve ön planda değilsek (yani tam döndüğümüzde) modalı göster
-      if (next.status == TimerStatus.exceeded && !next.isAppInBackground) {
-        // Build context'in geçerli olduğundan emin olmak için küçük bir gecikme
-        Future.microtask(() => _showLimitExceededModal());
-      }
-    });
+    // 🚫 UYGULAMA İÇİ MODAL DİNLEYİCİSİNİ KALDIRDIK
+    // Artık sadece sistem bildirimi kullanılıyor
   }
 
   @override
   void dispose() {
-    // Dinlemeyi bırak
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -43,51 +35,17 @@ class _DistractionTimerPageState extends ConsumerState<DistractionTimerPage>
 
     switch (state) {
       case AppLifecycleState.paused:
-        // Uygulama arka plana atıldı (muhtemelen dikkat dağıtıcı uygulamaya geçildi)
+        // Uygulama arka plana atıldı
         notifier.setBackground();
+        print('📱 Uygulama arka plana gitti - Timer başladı');
         break;
       case AppLifecycleState.resumed:
         // Uygulama ön plana geri geldi
         notifier.setForeground();
+        print('📱 Uygulama ön plana geldi - Timer durumu güncellendi');
         break;
       default:
         break;
-    }
-  }
-
-  // Limit aşıldığında gösterilecek tam ekran modal
-  void _showLimitExceededModal() {
-    // Sadece sayfa ön plandayken göster
-    if (ModalRoute.of(context)?.isCurrent == true) {
-      showDialog(
-        context: context,
-        barrierDismissible: false, // Kullanıcı kapatamaz, eylem yapmalı
-        builder: (ctx) => AlertDialog(
-          backgroundColor: Colors.red[800],
-          title: const Text(
-            '!!! ODAKLANMA KORUMASI DEVREDE !!!',
-            style: TextStyle(color: Colors.white),
-          ),
-          content: Text(
-            'Belirlediğin ${ref.read(distractionTimerProvider).settings.limit.inMinutes} dakikalık dikkat dağılma limiti doldu. Lütfen odağına geri dön.',
-            style: const TextStyle(color: Colors.white70),
-          ),
-          actions: [
-            ElevatedButton(
-              onPressed: () {
-                // Sayacı durdur ve modalı kapat
-                ref.read(distractionTimerProvider.notifier).stopTimer();
-                Navigator.pop(ctx);
-              },
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.white),
-              child: Text(
-                'TAMAM, GERİ DÖNÜYORUM',
-                style: TextStyle(color: Colors.red[900]),
-              ),
-            ),
-          ],
-        ),
-      );
     }
   }
 
@@ -101,7 +59,7 @@ class _DistractionTimerPageState extends ConsumerState<DistractionTimerPage>
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: Colors.grey[900], // Temaya uyum için
+        backgroundColor: Colors.grey[900],
         title: const Text(
           'Dikkat Dağılma Limitini Ayarla',
           style: TextStyle(color: Colors.white),
@@ -154,7 +112,6 @@ class _DistractionTimerPageState extends ConsumerState<DistractionTimerPage>
     final state = ref.watch(distractionTimerProvider);
     final notifier = ref.read(distractionTimerProvider.notifier);
 
-    // Yükleniyor ekranı (Persistence için)
     if (!state.isInitialized) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -168,8 +125,7 @@ class _DistractionTimerPageState extends ConsumerState<DistractionTimerPage>
 
     final bool isExceeded = state.status == TimerStatus.exceeded;
     final bool isRunning = state.status == TimerStatus.running;
-    final bool isPaused =
-        state.isAppInBackground && isRunning; // Arka planda sayım yapıyorsa
+    final bool isPaused = state.isAppInBackground && isRunning;
 
     return Center(
       child: Padding(
@@ -178,7 +134,7 @@ class _DistractionTimerPageState extends ConsumerState<DistractionTimerPage>
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            // AÇ/KAPA DÜĞMESİ (Toggle Switch)
+            // AÇ/KAPA DÜĞMESİ
             SwitchListTile(
               title: const Text(
                 'Odaklanma Koruması Aktif',
@@ -189,7 +145,7 @@ class _DistractionTimerPageState extends ConsumerState<DistractionTimerPage>
               ),
               subtitle: Text(
                 state.isGloballyActive
-                    ? 'Arka plana geçtiğinizde sayım başlar.'
+                    ? '🔔 Arka plana geçtiğinizde sayım başlar ve bildirim gelecek.'
                     : 'Koruma Pasif. Sayım yapılmayacaktır.',
                 style: TextStyle(
                   color: state.isGloballyActive
@@ -214,7 +170,7 @@ class _DistractionTimerPageState extends ConsumerState<DistractionTimerPage>
                 style: const TextStyle(color: Colors.white),
               ),
               subtitle: const Text(
-                'Bu süreden sonra uyarı alacaksınız.',
+                '⚠️ Bu süreden sonra sistem bildirimi alacaksınız.',
                 style: TextStyle(color: Colors.grey),
               ),
               trailing: const Icon(Icons.edit, color: Colors.grey),
@@ -223,50 +179,161 @@ class _DistractionTimerPageState extends ConsumerState<DistractionTimerPage>
 
             const SizedBox(height: 60),
 
-            // SÜRE GÖRSELLEŞTİRME (A Özelliği)
-            if (isRunning)
-              Column(
+            // DURUM GÖSTERGE KARTI
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: isExceeded
+                    ? Colors.red.withOpacity(0.2)
+                    : isRunning
+                    ? Colors.orange.withOpacity(0.2)
+                    : Colors.grey.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: isExceeded
+                      ? Colors.red
+                      : isRunning
+                      ? Colors.orange
+                      : Colors.grey,
+                  width: 2,
+                ),
+              ),
+              child: Column(
                 children: [
-                  Text(
-                    isPaused
-                        ? 'ARKA PLANDA GEÇEN SÜRE'
-                        : 'ODAĞINIZDA GEÇEN SÜRE',
-                    style: TextStyle(
-                      color: isPaused ? Colors.redAccent : Colors.greenAccent,
-                      fontSize: 18,
+                  // DURUM METNİ
+                  if (isExceeded)
+                    const Column(
+                      children: [
+                        Icon(
+                          Icons.warning_amber_rounded,
+                          color: Colors.red,
+                          size: 48,
+                        ),
+                        SizedBox(height: 10),
+                        Text(
+                          '⚠️ LİMİT AŞILDI',
+                          style: TextStyle(
+                            color: Colors.red,
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        SizedBox(height: 10),
+                        Text(
+                          'Telefonunuza sistem bildirimi gönderildi.\nOdağınıza geri dönün!',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: Colors.white70, fontSize: 14),
+                        ),
+                      ],
+                    )
+                  else if (isRunning)
+                    Column(
+                      children: [
+                        Icon(
+                          isPaused ? Icons.pause_circle : Icons.play_circle,
+                          color: isPaused ? Colors.orange : Colors.green,
+                          size: 48,
+                        ),
+                        const SizedBox(height: 10),
+                        Text(
+                          isPaused
+                              ? '⏸️ ARKA PLANDA SAYILIYOR'
+                              : '▶️ TIMER AKTİF',
+                          style: TextStyle(
+                            color: isPaused ? Colors.orange : Colors.green,
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        // SÜRE GÖSTERİMİ
+                        Text(
+                          '$minutes:$seconds',
+                          style: const TextStyle(
+                            fontSize: 72,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                            letterSpacing: 4,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        Text(
+                          'Limit: ${state.settings.limit.inMinutes} dakika',
+                          style: const TextStyle(
+                            color: Colors.grey,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
+                    )
+                  else
+                    const Column(
+                      children: [
+                        Icon(Icons.shield, color: Colors.grey, size: 48),
+                        SizedBox(height: 10),
+                        Text(
+                          '⏹️ HAZIR',
+                          style: TextStyle(
+                            color: Colors.grey,
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        SizedBox(height: 10),
+                        Text(
+                          'Koruma aktif edildiğinde,\narka plana geçtiğinizde sayım başlar.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: Colors.grey, fontSize: 14),
+                        ),
+                      ],
                     ),
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    '$minutes:$seconds',
-                    style: TextStyle(
-                      fontSize: 80,
-                      fontWeight: FontWeight.bold,
-                      color: isExceeded ? Colors.red : Colors.white,
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  // Bu buton, limit aşılsa bile ön plana geldiğinizde sayacı sıfırlar
-                  ElevatedButton.icon(
-                    onPressed: notifier.stopTimer,
-                    icon: const Icon(Icons.stop),
-                    label: const Text('SIFIRLA VE KORUMAYI YENİLE'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.red,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 15,
+
+                  // SIFIRLA BUTONU
+                  if (isRunning || isExceeded) ...[
+                    const SizedBox(height: 30),
+                    ElevatedButton.icon(
+                      onPressed: notifier.stopTimer,
+                      icon: const Icon(Icons.refresh),
+                      label: const Text('SIFIRLA'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 32,
+                          vertical: 16,
+                        ),
+                        textStyle: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
-                  ),
+                  ],
                 ],
-              )
-            else
-              const Text(
-                'Koruma ayarları yapıldı. Lütfen anahtarı aktif edin ve uygulamadan ayrılın.',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.grey),
               ),
+            ),
+
+            const SizedBox(height: 30),
+
+            // BİLGİLENDİRME
+            const Card(
+              color: Colors.blue,
+              child: Padding(
+                padding: EdgeInsets.all(16.0),
+                child: Row(
+                  children: [
+                    Icon(Icons.info_outline, color: Colors.white),
+                    SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'Limit dolduğunda telefonunuza sistem bildirimi gelecektir.',
+                        style: TextStyle(color: Colors.white, fontSize: 13),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ],
         ),
       ),

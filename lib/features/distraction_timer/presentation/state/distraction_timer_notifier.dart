@@ -1,9 +1,7 @@
 // lib/features/distraction_timer/presentation/state/distraction_timer_notifier.dart
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:life_assistant/core/services/notification_service.dart'; // 👈 YENİ
-
-// ... (TimerStatus, TimerSettings, TimerState sınıflarınız aynı kalacak)
+import 'package:life_assistant/core/services/notification_service.dart';
 
 enum TimerStatus { idle, running, exceeded }
 
@@ -51,6 +49,7 @@ class TimerState {
 class DistractionTimerNotifier extends StateNotifier<TimerState> {
   Timer? _timer;
   DateTime? _backgroundStartTime;
+  bool _notificationSent = false;
 
   DistractionTimerNotifier()
     : super(
@@ -64,6 +63,13 @@ class DistractionTimerNotifier extends StateNotifier<TimerState> {
         ),
       );
 
+  // ✅ YARDIMCI FONKSİYON: Gerçek geçen süreyi hesapla
+  Duration _calculateRealElapsed() {
+    if (_backgroundStartTime == null) return state.elapsedDuration;
+    return state.elapsedDuration +
+        DateTime.now().difference(_backgroundStartTime!);
+  }
+
   // Arka plana geçtiğinde çağrılır
   void setBackground() {
     if (!state.isGloballyActive) return;
@@ -74,25 +80,29 @@ class DistractionTimerNotifier extends StateNotifier<TimerState> {
       status: TimerStatus.running,
     );
     _startTimer();
+    print('📱 Arka plana geçildi. Başlangıç zamanı: $_backgroundStartTime');
   }
 
   // Ön plana geldiğinde çağrılır
   void setForeground() {
     if (_backgroundStartTime != null) {
-      final elapsed = DateTime.now().difference(_backgroundStartTime!);
-      final newDuration = state.elapsedDuration + elapsed;
+      final realElapsed = _calculateRealElapsed();
 
       state = state.copyWith(
         isAppInBackground: false,
-        elapsedDuration: newDuration,
+        elapsedDuration: realElapsed, // ✅ Gerçek süreyi kaydet
       );
+
+      print('📱 Ön plana gelindi. Geçen süre: ${realElapsed.inSeconds} saniye');
 
       _backgroundStartTime = null;
 
-      // Limit kontrolü
-      if (newDuration >= state.settings.limit) {
+      // ✅ Limit kontrolü
+      if (realElapsed >= state.settings.limit &&
+          state.status != TimerStatus.exceeded) {
         state = state.copyWith(status: TimerStatus.exceeded);
         _stopTimer();
+        print('⚠️ Limit aşıldı (ön planda tespit edildi)');
       }
     } else {
       state = state.copyWith(isAppInBackground: false);
@@ -101,20 +111,31 @@ class DistractionTimerNotifier extends StateNotifier<TimerState> {
 
   // Timer'ı başlat
   void _startTimer() {
-    _stopTimer(); // Önceki timer varsa durdur
+    _stopTimer();
 
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (state.isAppInBackground && state.isGloballyActive) {
-        final newDuration = state.elapsedDuration + const Duration(seconds: 1);
-        state = state.copyWith(elapsedDuration: newDuration);
+      if (state.isAppInBackground &&
+          state.isGloballyActive &&
+          _backgroundStartTime != null) {
+        // ✅ Gerçek süreyi hesapla (her saniyede bir kontrol)
+        final realElapsed = _calculateRealElapsed();
 
-        // 🔔 LİMİT AŞILDIĞINDA BİLDİRİM GÖNDER
-        if (newDuration >= state.settings.limit &&
-            state.status != TimerStatus.exceeded) {
-          state = state.copyWith(status: TimerStatus.exceeded);
+        // 🔔 LİMİT AŞILDIĞINDA SADECE BİR KEZ BİLDİRİM GÖNDER
+        if (realElapsed >= state.settings.limit &&
+            state.status != TimerStatus.exceeded &&
+            !_notificationSent) {
+          state = state.copyWith(
+            status: TimerStatus.exceeded,
+            elapsedDuration: realElapsed,
+          );
+          _notificationSent = true;
           _stopTimer();
 
-          // 🚨 SİSTEM BİLDİRİMİ GÖNDER
+          print(
+            '🚨 LİMİT AŞILDI! Gerçek süre: ${realElapsed.inSeconds} saniye',
+          );
+          print('🔔 Bildirim gönderiliyor...');
+
           NotificationService().showLimitExceededNotification(
             minutes: state.settings.limit.inMinutes,
           );
@@ -132,6 +153,7 @@ class DistractionTimerNotifier extends StateNotifier<TimerState> {
   // Sayacı sıfırla
   void stopTimer() {
     _stopTimer();
+    _notificationSent = false; // 🔥 YENİ: Bildirim flag'ini sıfırla
     state = state.copyWith(
       status: TimerStatus.idle,
       elapsedDuration: Duration.zero,
