@@ -1,20 +1,26 @@
+//lib/habit_tracker/presentation/widgets/date_selector.dart
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'; // ⚠️ provider DEĞIL riverpod!
-import 'package:life_assistant/features/habit_tracker/presentation/notifiers/habit_notifier.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:life_assistant/features/habit_tracker/presentation/notifers/habit_notifier.dart';
 
-// ✅ ConsumerWidget kullan (StatelessWidget yerine)
+// ✅ ConsumerWidget kullan
 class DateSelector extends ConsumerWidget {
   const DateSelector({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     // ✅ ref.watch ile provider'a eriş
-    final habitNotifier = ref.watch(habitListProvider);
-    final selectedDate = habitNotifier.selectedDate;
+    final habitNotifier = ref.read(
+      habitListProvider.notifier,
+    ); // Eylem için Notifier
+    final selectedDate = ref
+        .watch(habitListProvider)
+        .selectedDate; // Sadece state'i izle
     final today = DateUtils.dateOnly(DateTime.now());
+    final primaryColor = Theme.of(context).primaryColor;
 
     return Container(
-      height: 70,
+      height: 80,
       padding: const EdgeInsets.symmetric(vertical: 8.0),
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
@@ -23,6 +29,7 @@ class DateSelector extends ConsumerWidget {
         itemBuilder: (context, index) {
           final date = today.subtract(Duration(days: index));
           final isSelected = selectedDate == date;
+          final isFuture = date.isAfter(today);
 
           String dayName;
           if (date == today) {
@@ -34,23 +41,29 @@ class DateSelector extends ConsumerWidget {
           }
 
           return GestureDetector(
-            onTap: () {
-              habitNotifier.setSelectedDate(date);
-            },
+            // Gelecekteki günleri seçmeyi engelle
+            onTap: isFuture
+                ? null
+                : () {
+                    habitNotifier.setSelectedDate(date);
+                  },
             child: Container(
-              width: 50,
+              width: 60,
               margin: const EdgeInsets.symmetric(horizontal: 4),
               decoration: BoxDecoration(
                 color: isSelected
-                    ? Theme.of(context).primaryColor
-                    : Colors.grey[200],
+                    ? primaryColor
+                    : isFuture
+                    ? Colors.grey.shade700
+                    : Colors.grey[850],
                 borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: primaryColor.withOpacity(isSelected ? 1.0 : 0.2),
+                ),
                 boxShadow: isSelected
                     ? [
                         BoxShadow(
-                          color: Theme.of(
-                            context,
-                          ).primaryColor.withOpacity(0.5),
+                          color: primaryColor.withOpacity(0.5),
                           blurRadius: 5,
                         ),
                       ]
@@ -62,16 +75,16 @@ class DateSelector extends ConsumerWidget {
                   Text(
                     dayName,
                     style: TextStyle(
-                      color: isSelected ? Colors.white : Colors.black87,
+                      color: isSelected ? Colors.white : Colors.white70,
                       fontWeight: FontWeight.bold,
-                      fontSize: 14,
+                      fontSize: 16,
                     ),
                   ),
                   Text(
                     '${date.month}/${date.day}',
                     style: TextStyle(
-                      color: isSelected ? Colors.white70 : Colors.black54,
-                      fontSize: 10,
+                      color: isSelected ? Colors.white70 : Colors.grey[500],
+                      fontSize: 12,
                     ),
                   ),
                 ],

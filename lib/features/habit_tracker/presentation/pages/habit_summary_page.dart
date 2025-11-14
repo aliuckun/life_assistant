@@ -1,7 +1,8 @@
+// lib/features/habit_tracker/presentation/pages/habit_summary_page.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:life_assistant/features/habit_tracker/domain/models/habit.dart';
-import 'package:life_assistant/features/habit_tracker/presentation/notifiers/habit_notifier.dart';
+import 'package:life_assistant/features/habit_tracker/domain/entities/habit.dart'; // Entity güncellendi
+import '../notifers/habit_notifier.dart';
 
 // StatelessWidget yerine ConsumerWidget kullanıyoruz
 class HabitSummaryPage extends ConsumerWidget {
@@ -9,108 +10,116 @@ class HabitSummaryPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // HabitNotifier'ın kendisini izle
-    final habitNotifier = ref.watch(habitListProvider);
-
-    // Alışkanlık listesini Notifier'dan al
-    final habits =
-        habitNotifier.habits; // Hata Çözümü: .habits getter'ı kullanıldı
-
-    // Özet verilerini al
-    final summaryData = habitNotifier.getSummaryData();
-    final totalHabits = summaryData['totalHabits'] as int;
-    final completionRate = summaryData['completionRate'] as double;
-
-    // Koyu yazı rengi
-    const Color darkText = Colors.black87;
+    // Özet verilerini FutureProvider'dan almalıyız (Notifier'daki metod asenkron)
+    // Şimdilik sadece notifier'ı kullanıyoruz
+    final notifier = ref.read(habitListProvider.notifier);
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Alışkanlık Özet ve Analiz'),
-        backgroundColor: Colors.white,
+        backgroundColor: Colors.grey[900], // Koyu tema
+        foregroundColor: Colors.white,
         elevation: 1,
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // --- Genel Bakış Kartı ---
-            Card(
-              elevation: 4,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              color: Theme.of(context).primaryColor.withOpacity(0.1),
-              child: Padding(
-                padding: const EdgeInsets.all(20.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Genel İstatistikler',
-                      style: Theme.of(context).textTheme.headlineSmall
-                          ?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: darkText,
-                          ),
+      body: FutureBuilder<Map<String, dynamic>>(
+        // Asenkron metodu çağır
+        future: notifier.getSummaryData(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (snapshot.hasError || !snapshot.hasData) {
+            return const Center(child: Text('Özet verisi yüklenemedi.'));
+          }
+
+          final summaryData = snapshot.data!;
+          final totalHabits = summaryData['totalHabits'] as int;
+          final completionRate = summaryData['completionRate'] as double;
+
+          // Alışkanlık listesini Notifier'dan çek (görselleştirmek için)
+          final allHabits = ref.watch(habitListProvider).habits;
+
+          return SingleChildScrollView(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // --- Genel Bakış Kartı ---
+                Card(
+                  elevation: 4,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  color: Colors.grey[850], // Koyu tema rengi
+                  child: Padding(
+                    padding: const EdgeInsets.all(20.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Genel İstatistikler',
+                          style: Theme.of(context).textTheme.headlineSmall
+                              ?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                        ),
+                        const SizedBox(height: 15),
+                        _buildStatRow(
+                          context,
+                          icon: Icons.track_changes,
+                          title: 'Toplam Alışkanlık',
+                          value: totalHabits.toString(),
+                          color: Colors.deepPurple,
+                        ),
+                        const SizedBox(height: 10),
+                        _buildStatRow(
+                          context,
+                          icon: Icons.star_rate,
+                          title: 'Ortalama Tamamlanma Oranı (Son 7 Gün)',
+                          value: '${completionRate.toStringAsFixed(1)}%',
+                          color: Colors.teal.shade700,
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 15),
-                    _buildStatRow(
-                      context,
-                      icon: Icons.track_changes,
-                      title: 'Toplam Alışkanlık',
-                      value: totalHabits.toString(),
-                      color: Colors.deepPurple,
-                    ),
-                    const SizedBox(height: 10),
-                    _buildStatRow(
-                      context,
-                      icon: Icons.star_rate,
-                      title: 'Ortalama Tamamlanma Oranı (Son 7 Gün)',
-                      value: '${completionRate.toStringAsFixed(1)}%',
-                      color: Colors.teal.shade700,
-                    ),
-                  ],
+                  ),
                 ),
-              ),
-            ),
 
-            const SizedBox(height: 30),
+                const SizedBox(height: 30),
 
-            // --- Tüm Alışkanlıkların Durumu ---
-            Text(
-              'Tüm Alışkanlıklar',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: darkText,
-              ),
-            ),
-            const SizedBox(height: 10),
-
-            if (habits.isEmpty) // Hata Çözümü: habits.isEmpty kullanıldı
-              const Center(
-                child: Padding(
-                  padding: EdgeInsets.all(20.0),
-                  child: Text('Henüz takibe alınmış bir alışkanlık yok.'),
+                // --- Tüm Alışkanlıkların Durumu ---
+                Text(
+                  'Tüm Alışkanlıklar',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
                 ),
-              )
-            else
-              ...habits
-                  .map(
-                    (habit) => Padding(
-                      // Hata Çözümü: habits.map kullanıldı
-                      padding: const EdgeInsets.symmetric(vertical: 6.0),
-                      child: _buildHabitSummaryTile(
-                        context,
-                        habit,
-                        habitNotifier,
+                const SizedBox(height: 10),
+
+                if (allHabits.isEmpty)
+                  const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(20.0),
+                      child: Text(
+                        'Henüz takibe alınmış bir alışkanlık yok.',
+                        style: TextStyle(color: Colors.grey),
                       ),
                     ),
                   )
-                  .toList(),
-          ],
-        ),
+                else
+                  ...allHabits
+                      .map(
+                        (habit) => Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 6.0),
+                          child: _buildHabitSummaryTile(context, habit),
+                        ),
+                      )
+                      .toList(),
+              ],
+            ),
+          );
+        },
       ),
     );
   }
@@ -123,7 +132,6 @@ class HabitSummaryPage extends ConsumerWidget {
     required String value,
     required Color color,
   }) {
-    const Color darkText = Colors.black87;
     return Row(
       children: [
         Icon(icon, color: color, size: 24),
@@ -133,7 +141,7 @@ class HabitSummaryPage extends ConsumerWidget {
             title,
             style: Theme.of(
               context,
-            ).textTheme.bodyLarge?.copyWith(color: darkText),
+            ).textTheme.bodyLarge?.copyWith(color: Colors.white70),
           ),
         ),
         Text(
@@ -148,11 +156,7 @@ class HabitSummaryPage extends ConsumerWidget {
   }
 
   // Alışkanlık özet döşemesi oluşturucu
-  Widget _buildHabitSummaryTile(
-    BuildContext context,
-    Habit habit,
-    HabitNotifier notifier,
-  ) {
+  Widget _buildHabitSummaryTile(BuildContext context, Habit habit) {
     // Alışkanlığın son 7 gündeki tamamlanma gün sayısı
     int completedDays = 0;
     for (int i = 0; i < 7; i++) {
@@ -168,20 +172,12 @@ class HabitSummaryPage extends ConsumerWidget {
     final Color indicatorColor = isGain
         ? Colors.green.shade700
         : Colors.red.shade700;
-    const Color darkText = Colors.black87;
 
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Colors.grey[850],
         borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
-            spreadRadius: 1,
-            blurRadius: 3,
-          ),
-        ],
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -197,7 +193,7 @@ class HabitSummaryPage extends ConsumerWidget {
                 habit.name,
                 style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                   fontWeight: FontWeight.w600,
-                  color: darkText,
+                  color: Colors.white,
                 ),
               ),
             ],

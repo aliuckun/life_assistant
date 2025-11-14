@@ -1,9 +1,10 @@
+//lib/habit_tracker/presentation/widgets/habit_card.dart
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'; // ✅ provider değil riverpod!
-import 'package:life_assistant/features/habit_tracker/domain/models/habit.dart';
-import 'package:life_assistant/features/habit_tracker/presentation/notifiers/habit_notifier.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:life_assistant/features/habit_tracker/domain/entities/habit.dart';
+import 'package:life_assistant/features/habit_tracker/presentation/notifers/habit_notifier.dart'
+    show habitListProvider;
 
-// ✅ ConsumerWidget kullan
 class HabitCard extends ConsumerWidget {
   final Habit habit;
   const HabitCard({super.key, required this.habit});
@@ -59,20 +60,19 @@ class HabitCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // ✅ ref.read ile HabitNotifier'a eriş (listen: false yerine read kullan)
-    final habitNotifier = ref.read(habitListProvider);
     final selectedDate = ref.watch(habitListProvider).selectedDate;
+    final habitNotifier = ref.read(habitListProvider.notifier);
 
-    // Seçili gün için ilerleme ve durum
     final progress = habit.getProgressForDate(selectedDate);
-    final isCompleted = habit.isCompletedForDate(selectedDate);
+    final isCompleted = habit.isCompletedForDate(
+      selectedDate,
+    ); // Quit'te 0 ise true
     final isFuture = selectedDate.isAfter(DateUtils.dateOnly(DateTime.now()));
 
-    // Renkleri koyulaştırma
     final Color gainColor = Colors.green.shade50;
     final Color quitColor = Colors.red.shade50;
     final Color primaryColor = Theme.of(context).primaryColor;
-    final Color darkText = Colors.black87;
+    const Color darkText = Colors.black87;
 
     return Card(
       elevation: 4,
@@ -83,6 +83,7 @@ class HabitCard extends ConsumerWidget {
         padding: const EdgeInsets.all(16.0),
         child: Row(
           children: [
+            // ... (İkonlar ve Metinler)
             Icon(
               habit.type == HabitType.gain
                   ? Icons.check_circle_outline
@@ -114,7 +115,7 @@ class HabitCard extends ConsumerWidget {
                     ),
                   if (habit.type == HabitType.quit)
                     Text(
-                      'Bırakılacak Alışkanlık (Günde 0 kez hedef)',
+                      'Bırakılacak Alışkanlık (Hedef: 0 kez)',
                       style: Theme.of(
                         context,
                       ).textTheme.bodySmall?.copyWith(color: darkText),
@@ -131,7 +132,7 @@ class HabitCard extends ConsumerWidget {
               ),
             ),
 
-            // İlerleme Göstergesi ve + Butonu
+            // İlerleme Göstergesi ve + Butonu (GAIN)
             if (habit.type == HabitType.gain)
               Row(
                 children: [
@@ -141,30 +142,32 @@ class HabitCard extends ConsumerWidget {
                     alignment: Alignment.center,
                     decoration: BoxDecoration(
                       color: isCompleted
-                          ? Theme.of(context).colorScheme.primary
-                          : Colors.white,
+                          ? Colors.amberAccent
+                          : Colors.grey.shade200,
                       shape: BoxShape.circle,
-                      border: Border.all(color: Colors.grey.shade300, width: 2),
                     ),
                     child: Text(
                       '$progress/${habit.targetCount}',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
-                        color: isCompleted ? Colors.white : darkText,
+                        color: isCompleted ? Colors.black : darkText,
                       ),
                     ),
                   ),
                   const SizedBox(width: 10),
-                  // + Butonu
+
+                  // 🚨 GAIN BUTONU
                   if (!isFuture)
                     GestureDetector(
-                      onTap: isCompleted
-                          ? null
+                      onTap: progress >= habit.targetCount
+                          ? () =>
+                                habitNotifier.incrementHabit(
+                                  habit,
+                                  selectedDate,
+                                ) // Tamamlandıysa sıfırlama
                           : () {
                               habitNotifier.incrementHabit(habit, selectedDate);
-                              // Tamamlanma kontrolü ve animasyon
-                              if (habit.getProgressForDate(selectedDate) ==
-                                  habit.targetCount) {
+                              if (progress + 1 >= habit.targetCount) {
                                 _showCompletionAnimation(context);
                               }
                             },
@@ -172,14 +175,18 @@ class HabitCard extends ConsumerWidget {
                         width: 40,
                         height: 40,
                         decoration: BoxDecoration(
-                          color: isCompleted
+                          color: progress >= habit.targetCount
                               ? Colors.grey.shade400
                               : primaryColor,
                           shape: BoxShape.circle,
                         ),
                         child: Icon(
-                          Icons.add,
-                          color: isCompleted ? darkText : Colors.white,
+                          progress >= habit.targetCount
+                              ? Icons.refresh
+                              : Icons.add,
+                          color: progress >= habit.targetCount
+                              ? darkText
+                              : Colors.white,
                           size: 24,
                         ),
                       ),
@@ -187,25 +194,23 @@ class HabitCard extends ConsumerWidget {
                 ],
               ),
 
-            // Bırakılacak alışkanlıklar (Quit) için durum göstergesi
+            // Bırakılacak alışkanlıklar (QUIT) için durum göstergesi
             if (habit.type == HabitType.quit && !isFuture)
               Column(
                 children: [
                   // Durum İkonu
                   Icon(
-                    progress == 0 ? Icons.check_circle_outline : Icons.cancel,
-                    color: progress == 0
+                    isCompleted ? Icons.check_circle_outline : Icons.cancel,
+                    color: isCompleted
                         ? Colors.green.shade700
                         : Colors.red.shade700,
                     size: 30,
                   ),
                   const SizedBox(height: 5),
                   Text(
-                    progress == 0
-                        ? 'Başarılı (0/1)'
-                        : 'Başarısız ($progress/1)',
+                    isCompleted ? 'BAŞARILI' : 'BAŞARISIZ (1)',
                     style: TextStyle(
-                      color: progress == 0
+                      color: isCompleted
                           ? Colors.green.shade700
                           : Colors.red.shade700,
                       fontWeight: FontWeight.bold,
@@ -213,25 +218,31 @@ class HabitCard extends ConsumerWidget {
                     ),
                   ),
                   const SizedBox(height: 10),
-                  // + Butonu (Bırakılacak alışkanlıklar için artırma butonu)
+                  // 🚨 QUIT BUTONU (Geri Alma/Başarısız Kaydetme)
                   GestureDetector(
-                    onTap: () {
-                      if (progress < 1) {
-                        habitNotifier.incrementHabit(habit, selectedDate);
-                      }
-                    },
+                    onTap: progress >= habit.targetCount
+                        ? () =>
+                              habitNotifier.incrementHabit(
+                                habit,
+                                selectedDate,
+                              ) // Tamamlandıysa sıfırlama
+                        : () {
+                            habitNotifier.incrementHabit(habit, selectedDate);
+                          },
                     child: Container(
                       width: 40,
                       height: 40,
                       decoration: BoxDecoration(
-                        color: progress > 0
-                            ? Colors.grey.shade400
-                            : Colors.red.shade400,
+                        color: isCompleted
+                            ? Colors.red.shade400
+                            : Colors.grey.shade400,
                         shape: BoxShape.circle,
                       ),
                       child: Icon(
-                        Icons.warning_amber,
-                        color: progress > 0 ? darkText : Colors.white,
+                        isCompleted
+                            ? Icons.warning_amber
+                            : Icons.undo, // İkonu değiştir
+                        color: isCompleted ? Colors.white : darkText,
                         size: 24,
                       ),
                     ),
