@@ -34,6 +34,7 @@ dependencies:
   
   # State Management (Durum Yönetimi) - Önerilen
   flutter_riverpod: ^2.5.1 # Veya en son stabil versiyonu
+  provider: ^6.1.1 # Bu satırı ekleyin veya güncelleyin
 
   # Routing ve Navigasyon
   go_router: ^13.2.0 # Veya en son stabil versiyonu
