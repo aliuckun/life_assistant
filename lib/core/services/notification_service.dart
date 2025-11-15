@@ -1,6 +1,9 @@
 // lib/core/services/notification_service.dart
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter/material.dart';
+// 🚨 ZAMANLANMIŞ BİLDİRİMLER İÇİN GEREKLİ KÜTÜPHANELER
+import 'package:timezone/data/latest.dart' as tz;
+import 'package:timezone/timezone.dart' as tz;
 
 class NotificationService {
   static final NotificationService _instance = NotificationService._internal();
@@ -12,9 +15,15 @@ class NotificationService {
 
   bool _isInitialized = false;
 
-  /// Bildirimleri başlat
+  /// Bildirimleri başlat ve Timezone'u ayarla
   Future<void> initialize() async {
     if (_isInitialized) return;
+
+    // 🚨 Timezone Verisini Başlat
+    tz.initializeTimeZones();
+    // Yerel zaman dilimini al
+    final location = tz.getLocation(tz.local.name);
+    tz.setLocalLocation(location);
 
     // Android ayarları
     const AndroidInitializationSettings androidSettings =
@@ -63,7 +72,65 @@ class NotificationService {
     // İsterseniz burada belirli bir sayfaya yönlendirme yapabilirsiniz
   }
 
-  /// 🚨 ODAKLANMA KALKANI BİLDİRİMİ (Tam Ekran + Titreşim + Ses)
+  // =========================================================
+  // 🚨 YENİ METOT: AJANDA İÇİN ZAMANLANMIŞ BİLDİRİM
+  // =========================================================
+  /// Belirli bir tarihte bildirim gönder
+  Future<void> scheduleNotification({
+    required int id,
+    required String title,
+    required String body,
+    required DateTime scheduleDate,
+  }) async {
+    if (!_isInitialized) {
+      debugPrint("Bildirim servisi başlatılmamış.");
+      return;
+    }
+
+    // Zamanı TZDateTime objesine çevir
+    final tz.TZDateTime scheduledDate = tz.TZDateTime.from(
+      scheduleDate,
+      tz.local,
+    );
+
+    // Eğer geçmiş bir tarihse, bildirim planlama.
+    if (scheduledDate.isBefore(tz.TZDateTime.now(tz.local))) {
+      debugPrint("Bildirim tarihi geçmiş, planlanmadı.");
+      return;
+    }
+
+    const AndroidNotificationDetails androidDetails =
+        AndroidNotificationDetails(
+          'agenda_reminder_channel', // Yeni kanal ID
+          'Ajanda Hatırlatıcıları', // Kanal Adı
+          channelDescription: 'Ajanda görevleri için hatırlatıcılar',
+          importance: Importance.high,
+          priority: Priority.high,
+          enableVibration: true,
+          playSound: true,
+          color: Colors.blueGrey,
+          colorized: true,
+        );
+
+    const NotificationDetails details = NotificationDetails(
+      android: androidDetails,
+    );
+
+    await _notifications.zonedSchedule(
+      id,
+      title,
+      body,
+      scheduledDate,
+      details,
+      uiLocalNotificationDateInterpretation:
+          UILocalNotificationDateInterpretation.absoluteTime,
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      matchDateTimeComponents: DateTimeComponents.dateAndTime,
+    );
+    debugPrint('Bildirim başarıyla planlandı: ID $id, Tarih $scheduledDate');
+  }
+
+  /// 🚨 ODAKLANMA KALKANI BİLDİRİMİ (Tam Ekran + Titreşim + Ses) - Kodu aynı kaldı
   Future<void> showLimitExceededNotification({required int minutes}) async {
     const AndroidNotificationDetails androidDetails =
         AndroidNotificationDetails(
@@ -86,7 +153,8 @@ class NotificationService {
     );
 
     await _notifications.show(
-      0, // Bildirim ID
+      // Bildirim ID
+      1,
       '⚠️ ODAKLANMA KORUMASI DEVREDE!',
       '$minutes dakikalık dikkat dağılma limiti doldu. Lütfen odağına geri dön!',
       details,

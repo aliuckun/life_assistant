@@ -11,6 +11,8 @@ import 'core/services/notification_service.dart';
 import 'features/fitness_tracker/domain/entities/fitness_entities.dart';
 import 'features/habit_tracker/domain/entities/habit.dart';
 import 'features/money_tracking/domain/entities/transaction.dart';
+// 🚨 YENİ EKLEME: AJANDA ADAPTÖRÜ
+import 'features/agenda/domain/models/agenda_item.dart';
 
 const String appId = String.fromEnvironment(
   'APP_ID',
@@ -62,7 +64,18 @@ Future<void> main() async {
     debugPrint('❌ Money tracking adapter registration error: $e');
   }
 
+  // 🚨 AJANDA ADAPTÖRÜNÜ KAYDET
+  try {
+    // 🚨 Dikkat: Adapter ismini (AgendaItemAdapter) build_runner üretecektir.
+    Hive.registerAdapter(AgendaItemAdapter());
+    debugPrint('✅ Agenda adapter registered');
+  } catch (e) {
+    debugPrint('❌ Agenda adapter registration error: $e');
+  }
+
   // 🔔 Bildirim servisini başlat
+  // NotificationService sınıfınızın initialize metodu, TZ kütüphanesini de
+  // başlattığı için bu çağrı artık hem bildirimleri hem de zaman dilimini hallediyor.
   await NotificationService().initialize();
 
   runApp(const ProviderScope(child: MyApp()));

@@ -1,4 +1,3 @@
-// lib/core/router/app_router.dart
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 // Proje adınıza göre ayarlanmıştır (life_assistant)
@@ -7,8 +6,9 @@ import 'package:life_assistant/features/money_tracking/presentation/pages/money_
 import 'package:life_assistant/features/habit_tracker/presentation/pages/habit_tracker_page.dart';
 import 'package:life_assistant/features/home/presentation/pages/home_page.dart';
 import 'package:life_assistant/features/distraction_timer/presentation/pages/distraction_timer_page.dart';
-// 🚨 YENİ SAYFA IMPORT EDİLDİ
 import 'package:life_assistant/features/fitness_tracker/presentation/pages/fitness_tracker_page.dart';
+// 🚨 YENİ SAYFA IMPORT EDİLDİ
+import 'package:life_assistant/features/agenda/presentation/pages/agenda_page.dart';
 
 class AppRouter {
   static final GoRouter router = GoRouter(
@@ -61,13 +61,23 @@ class AppRouter {
               ),
             ],
           ),
-          // 🚨 SPOR/KALORİ TAKİBİ (Index 4)
+          // SPOR/KALORİ TAKİBİ (Index 4)
           StatefulShellBranch(
             routes: [
               GoRoute(
                 path: '/fitness',
                 pageBuilder: (context, state) =>
                     const NoTransitionPage(child: FitnessTrackerPage()),
+              ),
+            ],
+          ),
+          // 🚨 AJANDA/GÖREVLER (Index 5)
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/agenda',
+                pageBuilder: (context, state) =>
+                    const NoTransitionPage(child: AgendaPage()),
               ),
             ],
           ),

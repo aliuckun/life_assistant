@@ -15,12 +15,14 @@ dependencies:
   flutter_riverpod: ^2.5.1
   provider: ^6.1.1
 
+  uuid: ^4.2.2 # Veya en son sürümü kullanabilirsiniz
   intl: ^0.18.0
 
   # Routing ve Navigasyon
   go_router: ^13.2.0
   flutter_local_notifications: ^17.1.2
-
+  timezone: ^0.9.2 # Zamanlanmış bildirimler için
+  
   # 🔥 HIVE - Kalıcı Depolama
   hive: ^2.2.3
   hive_flutter: ^1.1.0

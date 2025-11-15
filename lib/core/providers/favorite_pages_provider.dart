@@ -16,8 +16,13 @@ const List<PageData> allMainPages = [
   PageData(path: '/money', title: 'Para Takibi', icon: Icons.attach_money),
   PageData(path: '/timer', title: 'Odaklanma Kalkanı', icon: Icons.alarm_on),
   PageData(path: '/habits', title: 'Alışkanlık Takibi', icon: Icons.checklist),
-  // 🚨 YENİ SAYFA EKLENDİ
   PageData(path: '/fitness', title: 'Spor/Kalori', icon: Icons.fitness_center),
+  // 🚨 YENİ SAYFA EKLENDİ
+  PageData(
+    path: '/agenda',
+    title: 'Ajanda/Görevler',
+    icon: Icons.calendar_today,
+  ),
 ];
 
 // allPages listesi artık sadece main sayfaları içerir
@@ -39,7 +44,8 @@ class FavoritePagesNotifier extends StateNotifier<List<PageData>> {
     if (state.any((p) => p.path == page.path)) {
       state = state.where((p) => p.path != page.path).toList();
     } else {
-      if (state.length < 5) {
+      // Favori limiti 5'ten fazla olamaz
+      if (state.length < 6) {
         state = [...state, page];
       }
     }
