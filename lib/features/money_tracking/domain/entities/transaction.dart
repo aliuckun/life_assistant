@@ -1,20 +1,40 @@
 // lib/features/money_tracking/domain/entities/transaction.dart
 import 'package:flutter/foundation.dart';
+import 'package:hive/hive.dart';
+
+part 'transaction.g.dart'; // 🔥 Code generation için
 
 // Gelir/Gider tipini tanımlar
-enum TransactionType { income, expense }
+@HiveType(typeId: 6)
+enum TransactionType {
+  @HiveField(0)
+  income,
+  @HiveField(1)
+  expense,
+}
 
-// 🚨 Entity sınıfının adı 'Transaction' yerine 'MoneyTransaction' olarak değiştirildi
-@immutable
-class MoneyTransaction {
+// 💰 Para İşlemi Entity'si
+@HiveType(typeId: 7)
+class MoneyTransaction extends HiveObject {
+  @HiveField(0)
   final String id;
+
+  @HiveField(1)
   final String description;
+
+  @HiveField(2)
   final double amount;
+
+  @HiveField(3)
   final DateTime date;
+
+  @HiveField(4)
   final String category;
+
+  @HiveField(5)
   final TransactionType type;
 
-  const MoneyTransaction({
+  MoneyTransaction({
     required this.id,
     required this.description,
     required this.amount,
@@ -23,7 +43,7 @@ class MoneyTransaction {
     required this.type,
   });
 
-  // Gerekli copyWith metodu
+  // copyWith metodu
   MoneyTransaction copyWith({
     String? id,
     String? description,
@@ -43,16 +63,25 @@ class MoneyTransaction {
   }
 }
 
-// Tekrar Eden Ödeme Entity'si
-@immutable
-class RecurringPayment {
+// 🔄 Tekrar Eden Ödeme Entity'si
+@HiveType(typeId: 8)
+class RecurringPayment extends HiveObject {
+  @HiveField(0)
   final String id;
+
+  @HiveField(1)
   final String description;
+
+  @HiveField(2)
   final double amount;
+
+  @HiveField(3)
   final String category;
+
+  @HiveField(4)
   final int paymentDayOfMonth;
 
-  const RecurringPayment({
+  RecurringPayment({
     required this.id,
     required this.description,
     required this.amount,
@@ -60,7 +89,7 @@ class RecurringPayment {
     required this.paymentDayOfMonth,
   });
 
-  // 🚨 Hata Çözümü: copyWith metodu eklendi
+  // copyWith metodu
   RecurringPayment copyWith({
     String? id,
     String? description,

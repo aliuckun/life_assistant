@@ -4,7 +4,8 @@ import '../../domain/entities/transaction.dart'; // MoneyTransaction'ı içeriyo
 
 // MoneyTransaction sınıfından miras alıyor
 class TransactionModel extends MoneyTransaction {
-  const TransactionModel({
+  // 🔥 const kaldırıldı - HiveObject const olamaz
+  TransactionModel({
     required super.id,
     required super.description,
     required super.amount,
@@ -18,8 +19,7 @@ class TransactionModel extends MoneyTransaction {
     return {
       'description': description,
       'amount': amount,
-      'date': date
-          .millisecondsSinceEpoch, // 🚨 Hata Çözümü: Timestamp yerine milisaniye
+      'date': date.millisecondsSinceEpoch,
       'category': category,
       'type': type.name,
     };
@@ -32,7 +32,6 @@ class TransactionModel extends MoneyTransaction {
 
     DateTime date;
     if (dateValue is int) {
-      // 🚨 Hata Çözümü: Milisaniyeden DateTime oluşturma
       date = DateTime.fromMillisecondsSinceEpoch(dateValue);
     } else {
       date = DateTime.now(); // Varsayılan değer

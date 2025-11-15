@@ -9,8 +9,8 @@ import '../../data/repositories/money_repository_impl.dart';
 @immutable
 class CategorySummary {
   final String category;
-  final double percentage; // Yüzde kaç harcandı
-  final double amount; // Toplam miktar
+  final double percentage;
+  final double amount;
 
   const CategorySummary({
     required this.category,
@@ -30,7 +30,6 @@ class MoneyTrackerState {
   final double totalExpense;
   final int resetDay;
   final List<CategorySummary> expenseSummary;
-  // 🚨 Hata Çözümü: Bu alanlar MoneyTrackerState'e aittir
   final List<RecurringPayment> recurringPayments;
   final bool isRecurringCheckDone;
 
@@ -43,7 +42,6 @@ class MoneyTrackerState {
     required this.totalExpense,
     required this.resetDay,
     required this.expenseSummary,
-    // 🚨 Yeni Alanlar
     required this.recurringPayments,
     required this.isRecurringCheckDone,
   });
@@ -57,7 +55,6 @@ class MoneyTrackerState {
     double? totalExpense,
     int? resetDay,
     List<CategorySummary>? expenseSummary,
-    // 🚨 Yeni Alanlar copyWith içinde
     List<RecurringPayment>? recurringPayments,
     bool? isRecurringCheckDone,
   }) {
@@ -70,7 +67,6 @@ class MoneyTrackerState {
       totalExpense: totalExpense ?? this.totalExpense,
       resetDay: resetDay ?? this.resetDay,
       expenseSummary: expenseSummary ?? this.expenseSummary,
-      // 🚨 Değer Atamaları
       recurringPayments: recurringPayments ?? this.recurringPayments,
       isRecurringCheckDone: isRecurringCheckDone ?? this.isRecurringCheckDone,
     );
@@ -93,7 +89,6 @@ class MoneyTrackerNotifier extends StateNotifier<MoneyTrackerState> {
           totalExpense: 0.0,
           resetDay: 1,
           expenseSummary: [],
-          // 🚨 Başlangıç Değerleri
           recurringPayments: [],
           isRecurringCheckDone: false,
         ),
@@ -107,14 +102,12 @@ class MoneyTrackerNotifier extends StateNotifier<MoneyTrackerState> {
 
   // ------------------------- FATURA TAKİBİ METOTLARI -------------------------
 
-  // 🚨 Yeni Metot: Fatura Düzenleme
   Future<void> updateRecurringPayment(RecurringPayment payment) async {
     await _repository.updateRecurringPayment(payment);
-    await fetchRecurringPayments(); // Listeyi güncelle
+    await fetchRecurringPayments();
     debugPrint('Recurring payment updated: ${payment.id}');
   }
 
-  // Fatura Listesini Çekme (Güncel hali)
   Future<void> fetchRecurringPayments() async {
     try {
       final payments = await _repository.getRecurringPayments();
@@ -124,22 +117,17 @@ class MoneyTrackerNotifier extends StateNotifier<MoneyTrackerState> {
     }
   }
 
-  // 🚨 Yeni Fatura Tanımlama (DÜZELTİLDİ: Listeyi yeniden çekiyor)
   Future<void> addRecurringPayment(RecurringPayment payment) async {
     await _repository.addRecurringPayment(payment);
-    await fetchRecurringPayments(); // ⭐️ Çözüm: Yeni faturayı UI'a yansıtmak için listeyi yeniden çek
-  }
-
-  // 🚨 Fatura Silme Metodu (EKLEME)
-  Future<void> deleteRecurringPayment(String id) async {
-    await _repository.deleteRecurringPayment(id);
-    // Silme işleminden sonra listeyi yeniden çek
     await fetchRecurringPayments();
   }
 
-  // Otomatik Fatura Kaydı Kontrolü (Simülasyon)
+  Future<void> deleteRecurringPayment(String id) async {
+    await _repository.deleteRecurringPayment(id);
+    await fetchRecurringPayments();
+  }
+
   Future<void> checkAndApplyRecurringPayments() async {
-    // 🚨 State'deki doğru alandan okuma yapıldı
     if (state.isRecurringCheckDone) return;
 
     final payments = await _repository.getRecurringPayments();
@@ -170,7 +158,6 @@ class MoneyTrackerNotifier extends StateNotifier<MoneyTrackerState> {
       }
     }
 
-    // 🚨 State'deki doğru alana atama yapıldı
     state = state.copyWith(isRecurringCheckDone: true);
 
     await fetchInitialTransactions();
@@ -178,23 +165,18 @@ class MoneyTrackerNotifier extends StateNotifier<MoneyTrackerState> {
     await fetchExpenseSummary();
   }
 
-  // 🚨 fatura güncelleme
   Future<void> updateTransaction(MoneyTransaction transaction) async {
     await _repository.updateTransaction(transaction);
 
-    // Güncelleme yapıldıktan sonra listeyi, toplamı ve özeti yeniden çek
-    // Liste güncellendiğinde kaydırma pozisyonu değişmesin diye listeyi tamamen sıfırlamıyoruz.
-    // Ancak basitlik ve tutarlılık için ilk sayfayı yeniden çekelim:
     state = state.copyWith(offset: 0, hasMore: true);
     await fetchInitialTransactions();
     await fetchTotalExpense();
     await fetchExpenseSummary();
   }
+
   // ----------------------------- DİĞER METOTLAR -----------------------------
 
-  // Yeni İşlemleri İlk Kez Çekme Metodu
   Future<void> fetchInitialTransactions() async {
-    // ... (metot içeriği aynı)
     state = state.copyWith(isLoadingInitial: true, hasMore: true, offset: 0);
     try {
       final newTransactions = await _repository.getTransactions(
@@ -213,9 +195,7 @@ class MoneyTrackerNotifier extends StateNotifier<MoneyTrackerState> {
     }
   }
 
-  // Sonraki İşlemleri Çekme Metodu (Lazy Loading)
   Future<void> fetchNextTransactions() async {
-    // ... (metot içeriği aynı)
     if (!state.hasMore || state.isLoadingMore) return;
 
     state = state.copyWith(isLoadingMore: true);
@@ -237,9 +217,7 @@ class MoneyTrackerNotifier extends StateNotifier<MoneyTrackerState> {
     }
   }
 
-  // Toplam Harcamayı Hesaplama Metodu
   Future<void> fetchTotalExpense() async {
-    // ... (metot içeriği aynı)
     final now = DateTime.now();
     DateTime startDate;
     DateTime endDate;
@@ -271,7 +249,6 @@ class MoneyTrackerNotifier extends StateNotifier<MoneyTrackerState> {
     }
   }
 
-  // Sıfırlama Gününü Ayarlar
   Future<void> setResetDay(int day) async {
     if (day < 1 || day > 31) return;
 
@@ -280,9 +257,7 @@ class MoneyTrackerNotifier extends StateNotifier<MoneyTrackerState> {
     debugPrint('Reset day set to $day');
   }
 
-  // Harcama Özetini Çekme (Pasta Grafik)
   Future<void> fetchExpenseSummary() async {
-    // ... (metot içeriği aynı)
     final allTransactions = await _repository.getAllTransactions();
 
     final expenses = allTransactions
@@ -317,7 +292,6 @@ class MoneyTrackerNotifier extends StateNotifier<MoneyTrackerState> {
     state = state.copyWith(expenseSummary: summary);
   }
 
-  // CRUD metotları
   Future<void> deleteTransaction(String id) async {
     await _repository.deleteTransaction(id);
     state = state.copyWith(offset: 0, hasMore: true);
@@ -335,8 +309,57 @@ class MoneyTrackerNotifier extends StateNotifier<MoneyTrackerState> {
   }
 }
 
-// Notifier Provider'ı
+// 🔥 Repository Provider
+final moneyRepositoryProvider = FutureProvider<MoneyRepository>((ref) async {
+  return await MoneyRepositoryImpl.getInstance();
+});
+
+// 🔥 Notifier Provider - Repository hazır olana kadar bekle
 final moneyTrackerNotifierProvider =
     StateNotifierProvider<MoneyTrackerNotifier, MoneyTrackerState>((ref) {
-      return MoneyTrackerNotifier(MoneyRepositoryImpl());
+      final repoAsync = ref.watch(moneyRepositoryProvider);
+      return repoAsync.when(
+        data: (repo) => MoneyTrackerNotifier(repo),
+        loading: () => MoneyTrackerNotifier(_DummyMoneyRepository()),
+        error: (_, __) => MoneyTrackerNotifier(_DummyMoneyRepository()),
+      );
     });
+
+// 🔥 Dummy Repository (Loading durumu için)
+class _DummyMoneyRepository implements MoneyRepository {
+  @override
+  Future<void> addRecurringPayment(RecurringPayment payment) async {}
+
+  @override
+  Future<void> addTransaction(MoneyTransaction transaction) async {}
+
+  @override
+  Future<void> deleteRecurringPayment(String id) async {}
+
+  @override
+  Future<void> deleteTransaction(String id) async {}
+
+  @override
+  Future<List<MoneyTransaction>> getAllTransactions() async => [];
+
+  @override
+  Future<List<RecurringPayment>> getRecurringPayments() async => [];
+
+  @override
+  Future<double> getTotalExpenseForPeriod({
+    required DateTime startDate,
+    required DateTime endDate,
+  }) async => 0.0;
+
+  @override
+  Future<List<MoneyTransaction>> getTransactions({
+    required int limit,
+    required int offset,
+  }) async => [];
+
+  @override
+  Future<void> updateRecurringPayment(RecurringPayment payment) async {}
+
+  @override
+  Future<void> updateTransaction(MoneyTransaction transaction) async {}
+}

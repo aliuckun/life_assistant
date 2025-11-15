@@ -1,7 +1,7 @@
 //lib/habit_tracker/presentation/widgets/add_habit_modal.dart
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:life_assistant/features/habit_tracker/domain/entities/habit.dart'; // Entity güncellendi
+import 'package:life_assistant/features/habit_tracker/domain/entities/habit.dart';
 
 class AddHabitModal extends StatefulWidget {
   final Function(Habit) onSave;
@@ -18,11 +18,10 @@ class _AddHabitModalState extends State<AddHabitModal> {
     text: '1',
   );
   HabitType _habitType = HabitType.gain;
-  bool _enableNotification = true; // Varsayılan olarak seçili
+  bool _enableNotification = true;
   TimeOfDay _notificationTime = TimeOfDay.now();
 
   void _selectTime() async {
-    // TimePicker teması koyu tema ile uyumlu hale getirildi
     final TimeOfDay? newTime = await showTimePicker(
       context: context,
       initialTime: _notificationTime,
@@ -58,15 +57,17 @@ class _AddHabitModalState extends State<AddHabitModal> {
       return;
     }
 
-    final newHabit = Habit(
-      id: DateTime.now().millisecondsSinceEpoch
-          .toString(), // Repos'da ID atanacak ama burada geçici ID verelim
-      name: name,
-      type: _habitType,
-      targetCount: _habitType == HabitType.quit ? 1 : targetCount,
-      enableNotification: _enableNotification,
-      notificationTime: _enableNotification ? _notificationTime : null,
-      progress: const {}, // Başlangıçta boş ilerleme
+    // 🔥 HIVE için Habit.create() kullanıyoruz
+    final newHabit = Habit.create(
+      id: '', // Repository tarafından oluşturulacak
+      name: name, // ✅ _nameController.text yerine 'name' değişkeni
+      type: _habitType, // ✅ _habitType kullanıyoruz
+      targetCount: targetCount, // ✅ targetCount değişkeni
+      enableNotification: _enableNotification, // ✅ _enableNotification
+      notificationTime: _enableNotification
+          ? _notificationTime
+          : null, // ✅ _notificationTime
+      progress: {}, // Boş progress ile başla
     );
 
     widget.onSave(newHabit);

@@ -201,8 +201,39 @@ class HabitNotifier extends StateNotifier<HabitTrackerState> {
   }
 }
 
-// Riverpod Provider Tanımı
+// ✅ YENİ:
+final habitRepositoryProvider = FutureProvider<HabitRepository>((ref) async {
+  return await HabitRepositoryImpl.getInstance();
+});
+
 final habitListProvider =
     StateNotifierProvider<HabitNotifier, HabitTrackerState>((ref) {
-      return HabitNotifier(HabitRepositoryImpl());
+      // Repository henüz yüklenmemişse boş bir repository kullan
+      final repoAsync = ref.watch(habitRepositoryProvider);
+      return repoAsync.when(
+        data: (repo) => HabitNotifier(repo),
+        loading: () => HabitNotifier(_DummyRepository()), // Geçici
+        error: (_, __) => HabitNotifier(_DummyRepository()),
+      );
     });
+
+// Geçici dummy repository (loading sırasında)
+class _DummyRepository implements HabitRepository {
+  @override
+  Future<void> addHabit(Habit habit) async {}
+
+  @override
+  Future<void> deleteHabit(String id) async {}
+
+  @override
+  Future<List<Habit>> getAllHabits() async => [];
+
+  @override
+  Future<List<Habit>> getHabits({
+    required int limit,
+    required int offset,
+  }) async => [];
+
+  @override
+  Future<void> updateHabit(Habit habit) async {}
+}

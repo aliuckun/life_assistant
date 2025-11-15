@@ -16,15 +16,14 @@ const List<PageData> allMainPages = [
   PageData(path: '/money', title: 'Para Takibi', icon: Icons.attach_money),
   PageData(path: '/timer', title: 'Odaklanma Kalkanı', icon: Icons.alarm_on),
   PageData(path: '/habits', title: 'Alışkanlık Takibi', icon: Icons.checklist),
+  // 🚨 YENİ SAYFA EKLENDİ
+  PageData(path: '/fitness', title: 'Spor/Kalori', icon: Icons.fitness_center),
 ];
 
-// Ayarlar gibi, alt menüde gösterilmesi gerekmeyen tüm sayfalar dahil
-const List<PageData> allPages = [
-  ...allMainPages,
-  PageData(path: '/settings', title: 'Ayarlar', icon: Icons.settings),
-];
+// allPages listesi artık sadece main sayfaları içerir
+const List<PageData> allPages = [...allMainPages];
 
-// 🚨 YENİ PROVIDER: SADECE ALT NAVİGASYON ÇUBUĞUNU SABİT TUTAR
+// YENİ PROVIDER: SADECE ALT NAVİGASYON ÇUBUĞUNU SABİT TUTAR
 final bottomNavigationPagesProvider = Provider<List<PageData>>((ref) {
   // Alt menü çubuğunda görünecek sayfaların sırası ve tam listesi
   return allMainPages;
@@ -32,11 +31,10 @@ final bottomNavigationPagesProvider = Provider<List<PageData>>((ref) {
 
 // StateNotifier: Favori sayfaların durumunu yönetir (Sadece yıldızlar için)
 class FavoritePagesNotifier extends StateNotifier<List<PageData>> {
-  // Başlangıçta tüm ana sayfaları favori olarak işaretleyelim, sonra kullanıcı değiştirebilir.
+  // Başlangıçta tüm ana sayfaları favori olarak işaretleyelim.
   FavoritePagesNotifier() : super(allMainPages);
 
   // ... (toggleFavorite ve isFavorite metotları aynı kalır)
-
   void toggleFavorite(PageData page) {
     if (state.any((p) => p.path == page.path)) {
       state = state.where((p) => p.path != page.path).toList();

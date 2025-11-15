@@ -5,14 +5,9 @@ import 'package:life_assistant/core/providers/favorite_pages_provider.dart';
 import 'navigation_drawer_widget.dart';
 
 class MainLayout extends ConsumerWidget {
-  final Widget child;
-  final int selectedIndex;
+  final StatefulNavigationShell navigationShell;
 
-  const MainLayout({
-    super.key,
-    required this.child,
-    required this.selectedIndex,
-  });
+  const MainLayout({super.key, required this.navigationShell});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -22,7 +17,6 @@ class MainLayout extends ConsumerWidget {
     final currentPath = GoRouterState.of(context).uri.path;
 
     // ✅ FAVORİLER LİSTESİNDEKİ INDEX'İ BUL
-    // Eğer mevcut sayfa favorilerde yoksa, alt menüyü devre dışı bırak
     final currentIndexInFavorites = favPages.indexWhere(
       (page) => page.path == currentPath,
     );
@@ -45,25 +39,24 @@ class MainLayout extends ConsumerWidget {
         title: const Text('Life Assistant'),
       ),
 
-      body: child,
+      // ✅ navigationShell body olarak kullanılıyor
+      body: navigationShell,
 
       // ✅ SADECE FAVORİLER VARSA ALT MENÜYÜ GÖSTER
       bottomNavigationBar: favPages.isEmpty
           ? null
           : BottomNavigationBar(
-              // ✅ GÜVENLİ INDEX KONTROLÜ
-              currentIndex:
-                  currentIndexInFavorites >= 0 &&
-                      currentIndexInFavorites < favPages.length
-                  ? currentIndexInFavorites
-                  : 0,
+              // ✅ navigationShell'in currentIndex'ini kullan
+              currentIndex: navigationShell.currentIndex,
 
               type: BottomNavigationBarType.fixed,
 
               onTap: (index) {
-                if (index >= 0 && index < favPages.length) {
-                  context.go(favPages[index].path);
-                }
+                // ✅ navigationShell ile branch değiştir
+                navigationShell.goBranch(
+                  index,
+                  initialLocation: index == navigationShell.currentIndex,
+                );
               },
 
               items: favPages.map((page) {
