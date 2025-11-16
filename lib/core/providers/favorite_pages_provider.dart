@@ -23,6 +23,7 @@ const List<PageData> allMainPages = [
     title: 'Ajanda/Görevler',
     icon: Icons.calendar_today,
   ),
+  PageData(path: '/language', title: 'Dil Öğrenme', icon: Icons.language),
 ];
 
 // allPages listesi artık sadece main sayfaları içerir

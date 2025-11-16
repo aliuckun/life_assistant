@@ -14,6 +14,8 @@ import 'features/money_tracking/domain/entities/transaction.dart';
 // 🚨 YENİ EKLEME: AJANDA ADAPTÖRÜ
 import 'features/agenda/domain/models/agenda_item.dart';
 
+import 'features/language_learning/domain/vocabulary_word_adapter.dart';
+
 const String appId = String.fromEnvironment(
   'APP_ID',
   defaultValue: 'default-app-id',
@@ -71,6 +73,14 @@ Future<void> main() async {
     debugPrint('✅ Agenda adapter registered');
   } catch (e) {
     debugPrint('❌ Agenda adapter registration error: $e');
+  }
+
+  // language_learning, adaptör kaydı kısmına:
+  try {
+    Hive.registerAdapter(VocabularyWordAdapter());
+    debugPrint('✅ Vocabulary adapter registered');
+  } catch (e) {
+    debugPrint('❌ Vocabulary adapter registration error: $e');
   }
 
   // 🔔 Bildirim servisini başlat
