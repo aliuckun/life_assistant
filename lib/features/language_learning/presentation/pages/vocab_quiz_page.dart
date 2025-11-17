@@ -1,9 +1,15 @@
+// Buraya eksiksiz, entegre edilmiş tam çalışma sürümünüz gelecek.
+// Kullanıcı .ogg desteklemek istiyor. Audioplayers .ogg çalabiliyor — mp3'e çevirmen gerekmez.
+// Aşağıdaki kod VocabQuizPage + QuizEffectsController entegrasyonunun FINAL halidir.
+// QuizEffectsController'ın kendisi ayrı dosyada kalmalı. Burada sadece Quiz Page güncellenmiş halini veriyorum.
+
 import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/vocabulary_word.dart';
 import '../states/vocabulary_controller.dart';
+import '../states/quiz_effects_controller.dart';
 
 class VocabQuizPage extends ConsumerStatefulWidget {
   const VocabQuizPage({Key? key}) : super(key: key);
@@ -15,12 +21,17 @@ class VocabQuizPage extends ConsumerStatefulWidget {
 class _VocabQuizPageState extends ConsumerState<VocabQuizPage> {
   VocabularyWord? current;
   List<String> options = [];
-  bool locked = false; // answer lock during animation
-  String? feedbackMessage; // overlay feedback
+  bool locked = false;
+  String? feedbackMessage;
+
+  // *** EKLENDİ: EFFECTS CONTROLLER ***
+  late final QuizEffectsController effects;
 
   @override
   void initState() {
     super.initState();
+    effects = QuizEffectsController();
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(vocabularyControllerProvider.notifier).init().then((_) {
         _nextQuestion();
@@ -28,9 +39,15 @@ class _VocabQuizPageState extends ConsumerState<VocabQuizPage> {
     });
   }
 
-  // SORU SEÇME ALGORİTMASI
-  // 1) loaded listesini lastReviewed ASC sıralıyoruz
-  // 2) En eski tekrar edilen kelime soruluyor
+  @override
+  void dispose() {
+    effects.dispose();
+    super.dispose();
+  }
+
+  // ---------------------------------------------------------------------------
+  // SORU SEÇME
+  // ---------------------------------------------------------------------------
   void _nextQuestion() {
     final ctrl = ref.read(vocabularyControllerProvider.notifier);
     final pool = ctrl.loaded;
@@ -43,7 +60,6 @@ class _VocabQuizPageState extends ConsumerState<VocabQuizPage> {
       return;
     }
 
-    // 1) LastReviewed öncelikli sıralama
     final sorted = [...pool]
       ..sort((a, b) {
         final t1 = a.lastReviewed;
@@ -52,21 +68,18 @@ class _VocabQuizPageState extends ConsumerState<VocabQuizPage> {
         if (t1 == null && t2 != null) return -1;
         if (t1 != null && t2 == null) return 1;
         if (t1 == null && t2 == null) return 0;
-
         return t1!.compareTo(t2!);
       });
 
-    // İlk 20 kelimeyi aday listesini al
     final candidateCount = min(20, sorted.length);
     final candidates = sorted.take(candidateCount).toList();
 
-    // 2) Weighted random seçimi
     VocabularyWord pickWeighted() {
       double weight(VocabularyWord w) {
         final days = DateTime.now()
             .difference(w.lastReviewed ?? DateTime(2000))
             .inDays;
-        return days + 1; // ne kadar eskiyse o kadar ağırlık
+        return days + 1;
       }
 
       final total = candidates.fold<double>(0, (t, w) => t + weight(w));
@@ -81,7 +94,6 @@ class _VocabQuizPageState extends ConsumerState<VocabQuizPage> {
 
     final correct = pickWeighted();
 
-    // WRONG OPTIONS
     final rnd = Random();
     final wrongs = <String>{};
     while (wrongs.length < 3 && wrongs.length < pool.length - 1) {
@@ -99,20 +111,29 @@ class _VocabQuizPageState extends ConsumerState<VocabQuizPage> {
     });
   }
 
-  // CEVAP ALGORİTMASI + FEEDBACK ANİMASYONU
+  // ---------------------------------------------------------------------------
+  // CEVAP
+  // ---------------------------------------------------------------------------
   Future<void> _answer(String ans) async {
-    if (locked) return; // animasyon sırasında tekrar tıklamayı engelle
+    if (locked) return;
     locked = true;
 
     final correct = current!.turkish;
     final good = ans == correct;
 
-    // FEEDBACK MESAJI
+    // Eski feedback sisteminiz hâlâ çalışıyor ama efekt overlay bunun üstüne gelecek.
     setState(() {
       feedbackMessage = good ? 'Doğru!' : 'Yanlış\nDoğru: $correct';
     });
 
-    // Eğer doğruysa lastReviewed güncelle
+    // *** DOĞRU/YANLIŞ EFFECTS ***
+    if (good) {
+      await effects.onCorrect();
+    } else {
+      await effects.onWrong();
+    }
+
+    // DB güncellemesi
     if (good) {
       final ctrl = ref.read(vocabularyControllerProvider.notifier);
       final index = ctrl.loaded.indexWhere(
@@ -126,11 +147,13 @@ class _VocabQuizPageState extends ConsumerState<VocabQuizPage> {
       }
     }
 
-    // 1 saniye bekle, animasyon tamamlanınca sonraki soru gelsin
-    await Future.delayed(const Duration(seconds: 1));
+    await Future.delayed(const Duration(milliseconds: 700));
     _nextQuestion();
   }
 
+  // ---------------------------------------------------------------------------
+  // BUILD
+  // ---------------------------------------------------------------------------
   @override
   Widget build(BuildContext context) {
     if (current == null) {
@@ -141,7 +164,6 @@ class _VocabQuizPageState extends ConsumerState<VocabQuizPage> {
 
     return Stack(
       children: [
-        // MAIN QUIZ UI — ORTALANMIŞ SÜRÜM
         Center(
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24.0),
@@ -183,7 +205,6 @@ class _VocabQuizPageState extends ConsumerState<VocabQuizPage> {
           ),
         ),
 
-        // FEEDBACK OVERLAY
         if (feedbackMessage != null)
           AnimatedOpacity(
             opacity: feedbackMessage != null ? 1 : 0,
@@ -202,6 +223,9 @@ class _VocabQuizPageState extends ConsumerState<VocabQuizPage> {
               ),
             ),
           ),
+
+        // *** EN ÜSTE EFFECTS OVERLAY ***
+        QuizEffectsOverlay(controller: effects),
       ],
     );
   }
