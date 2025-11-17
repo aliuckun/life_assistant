@@ -1,4 +1,4 @@
-// life_assistant/lib/features/language_learning/presentation/pages/vocab_quiz_page.dart
+import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -15,10 +15,26 @@ class VocabQuizPage extends ConsumerStatefulWidget {
 class _VocabQuizPageState extends ConsumerState<VocabQuizPage> {
   VocabularyWord? current;
   List<String> options = [];
+  bool locked = false; // answer lock during animation
+  String? feedbackMessage; // overlay feedback
 
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(vocabularyControllerProvider.notifier).init().then((_) {
+        _nextQuestion();
+      });
+    });
+  }
+
+  // SORU SEÇME ALGORİTMASI
+  // 1) loaded listesini lastReviewed ASC sıralıyoruz
+  // 2) En eski tekrar edilen kelime soruluyor
   void _nextQuestion() {
     final ctrl = ref.read(vocabularyControllerProvider.notifier);
     final pool = ctrl.loaded;
+
     if (pool.isEmpty) {
       setState(() {
         current = null;
@@ -27,54 +43,91 @@ class _VocabQuizPageState extends ConsumerState<VocabQuizPage> {
       return;
     }
 
+    // 1) LastReviewed öncelikli sıralama
+    final sorted = [...pool]
+      ..sort((a, b) {
+        final t1 = a.lastReviewed;
+        final t2 = b.lastReviewed;
+
+        if (t1 == null && t2 != null) return -1;
+        if (t1 != null && t2 == null) return 1;
+        if (t1 == null && t2 == null) return 0;
+
+        return t1!.compareTo(t2!);
+      });
+
+    // İlk 20 kelimeyi aday listesini al
+    final candidateCount = min(20, sorted.length);
+    final candidates = sorted.take(candidateCount).toList();
+
+    // 2) Weighted random seçimi
+    VocabularyWord pickWeighted() {
+      double weight(VocabularyWord w) {
+        final days = DateTime.now()
+            .difference(w.lastReviewed ?? DateTime(2000))
+            .inDays;
+        return days + 1; // ne kadar eskiyse o kadar ağırlık
+      }
+
+      final total = candidates.fold<double>(0, (t, w) => t + weight(w));
+      double r = Random().nextDouble() * total;
+
+      for (final w in candidates) {
+        r -= weight(w);
+        if (r <= 0) return w;
+      }
+      return candidates.last;
+    }
+
+    final correct = pickWeighted();
+
+    // WRONG OPTIONS
     final rnd = Random();
-    final correct = pool[rnd.nextInt(pool.length)];
     final wrongs = <String>{};
     while (wrongs.length < 3 && wrongs.length < pool.length - 1) {
       final candidate = pool[rnd.nextInt(pool.length)];
       if (candidate.turkish != correct.turkish) wrongs.add(candidate.turkish);
     }
+
     final opts = [correct.turkish, ...wrongs].toList()..shuffle();
+
     setState(() {
       current = correct;
       options = opts;
+      locked = false;
+      feedbackMessage = null;
     });
   }
 
-  @override
-  void initState() {
-    super.initState();
-    // If user hasn't opened library (and thus box not init), init to allow quiz
-    // This triggers lazy open too.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref
-          .read(vocabularyControllerProvider.notifier)
-          .init()
-          .then((_) => _nextQuestion());
-    });
-  }
+  // CEVAP ALGORİTMASI + FEEDBACK ANİMASYONU
+  Future<void> _answer(String ans) async {
+    if (locked) return; // animasyon sırasında tekrar tıklamayı engelle
+    locked = true;
 
-  void _answer(String ans) {
-    final correct = current?.turkish;
+    final correct = current!.turkish;
     final good = ans == correct;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(good ? 'Doğru' : 'Yanlış - Doğru: $correct')),
-    );
-    // mark lastReviewed for the word
+
+    // FEEDBACK MESAJI
+    setState(() {
+      feedbackMessage = good ? 'Doğru!' : 'Yanlış\nDoğru: $correct';
+    });
+
+    // Eğer doğruysa lastReviewed güncelle
     if (good) {
-      // update lastReviewed
       final ctrl = ref.read(vocabularyControllerProvider.notifier);
       final index = ctrl.loaded.indexWhere(
         (w) => w.german == current!.german && w.turkish == current!.turkish,
       );
       if (index != -1) {
         final updated = current!.copyWith(lastReviewed: DateTime.now());
-        // update via repository: we didn't expose update by index in controller, call repo directly
-        ref.read(vocabularyRepositoryProvider).update(index, updated);
-        // refresh controller list
-        ref.read(vocabularyControllerProvider.notifier).init();
+        await ref
+            .read(vocabularyControllerProvider.notifier)
+            .updateAtListIndex(index, updated);
       }
     }
+
+    // 1 saniye bekle, animasyon tamamlanınca sonraki soru gelsin
+    await Future.delayed(const Duration(seconds: 1));
     _nextQuestion();
   }
 
@@ -85,28 +138,71 @@ class _VocabQuizPageState extends ConsumerState<VocabQuizPage> {
         child: Text('Kütüphanede kelime yok veya yükleniyor'),
       );
     }
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        children: [
-          Text(
-            'Almanca: ${current!.german}',
-            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+
+    return Stack(
+      children: [
+        // MAIN QUIZ UI — ORTALANMIŞ SÜRÜM
+        Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Text(
+                  'Almanca: ${current!.german}',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 32),
+
+                ...options.map(
+                  (o) => Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: () => _answer(o),
+                        child: Text(o, textAlign: TextAlign.center),
+                      ),
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 40),
+                ElevatedButton(
+                  onPressed: locked ? null : _nextQuestion,
+                  child: const Text('Geç'),
+                ),
+              ],
+            ),
           ),
-          const SizedBox(height: 24),
-          ...options.map(
-            (o) => Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              child: ElevatedButton(
-                onPressed: () => _answer(o),
-                child: Text(o),
+        ),
+
+        // FEEDBACK OVERLAY
+        if (feedbackMessage != null)
+          AnimatedOpacity(
+            opacity: feedbackMessage != null ? 1 : 0,
+            duration: const Duration(milliseconds: 200),
+            child: Container(
+              color: Colors.black.withOpacity(0.6),
+              alignment: Alignment.center,
+              child: Text(
+                feedbackMessage!,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 32,
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
           ),
-          const Spacer(),
-          ElevatedButton(onPressed: _nextQuestion, child: const Text('Geç')),
-        ],
-      ),
+      ],
     );
   }
 }

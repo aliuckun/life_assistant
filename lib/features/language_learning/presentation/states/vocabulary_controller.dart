@@ -1,4 +1,3 @@
-// life_assistant/lib/features/language_learning/presentation/states/vocabulary_controller.dart
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/vocabulary_word.dart';
 import '../../data/vocabulary_repository.dart';
@@ -7,79 +6,97 @@ final vocabularyRepositoryProvider = Provider<VocabularyRepository>((ref) {
   return VocabularyRepository();
 });
 
-// Page-level provider: manages loading box only when page requested
 final vocabularyControllerProvider =
-    AsyncNotifierProvider<VocabularyController, void>(
-      () => VocabularyController(),
+    StateNotifierProvider<VocabularyController, VocabularyState>((ref) {
+      return VocabularyController(ref.read(vocabularyRepositoryProvider));
+    });
+
+class VocabularyState {
+  final bool isLoading;
+  final bool hasError;
+  final String? error;
+
+  VocabularyState({
+    required this.isLoading,
+    required this.hasError,
+    this.error,
+  });
+
+  factory VocabularyState.initial() =>
+      VocabularyState(isLoading: false, hasError: false);
+
+  VocabularyState copyWith({bool? isLoading, bool? hasError, String? error}) {
+    return VocabularyState(
+      isLoading: isLoading ?? this.isLoading,
+      hasError: hasError ?? this.hasError,
+      error: error,
     );
-
-class VocabularyController extends AsyncNotifier<void> {
-  late final VocabularyRepository repo;
-
-  // in-memory paginated list
-  final List<VocabularyWord> loaded = [];
-  static const int pageSize = 5;
-  int cursor = 0;
-  bool hasMore = true;
-  bool loadingMore = false;
-
-  @override
-  Future<void> build() async {
-    repo = ref.read(vocabularyRepositoryProvider);
-    // Do not open box here automatically; open when page calls init()
   }
+}
+
+class VocabularyController extends StateNotifier<VocabularyState> {
+  final VocabularyRepository repo;
+
+  final List<VocabularyWord> loaded = [];
+  static const int pageSize = 10;
+  bool hasMore = true;
+  bool _loadingMore = false;
+
+  VocabularyController(this.repo) : super(VocabularyState.initial());
 
   Future<void> init() async {
-    state = const AsyncValue.loading();
-    try {
-      await repo.openBox();
-      // reset pagination
-      loaded.clear();
-      cursor = 0;
-      hasMore = true;
-      await loadMore(); // load first chunk
-      state = const AsyncValue.data(null);
-    } catch (e, st) {
-      state = AsyncValue.error(e, st);
-    }
-  }
+    state = state.copyWith(isLoading: true);
 
-  Future<void> disposeBox() async {
-    await repo.closeBox();
+    await repo.openBox();
+
     loaded.clear();
-    cursor = 0;
     hasMore = true;
+
+    final chunk = repo.getRange(start: 0, limit: pageSize);
+    loaded.addAll(chunk);
+
+    hasMore = chunk.length == pageSize;
+
+    state = state.copyWith(isLoading: false);
   }
 
   Future<void> loadMore() async {
-    if (!repo.isOpen) return;
-    if (!hasMore || loadingMore) return;
-    loadingMore = true;
-    final newItems = repo.getRange(start: cursor, limit: pageSize);
-    if (newItems.isEmpty) {
+    if (!hasMore) return;
+    if (_loadingMore) return;
+
+    _loadingMore = true;
+
+    final start = loaded.length;
+    final chunk = repo.getRange(start: start, limit: pageSize);
+
+    if (chunk.isEmpty) {
       hasMore = false;
     } else {
-      loaded.addAll(newItems);
-      cursor += newItems.length;
-      if (newItems.length < pageSize) hasMore = false;
+      loaded.addAll(chunk);
+      hasMore = chunk.length == pageSize;
     }
-    loadingMore = false;
-    // notify listeners by marking state (data)
-    state = const AsyncValue.data(null);
+
+    state = state.copyWith(); // notify UI
+    _loadingMore = false;
   }
 
-  Future<void> addWord(VocabularyWord word) async {
-    await repo.add(word);
-    // If happens to be early in list, we may want to refresh pagination:
-    // simple approach: re-init to reflect order/length
-    await init();
+  Future<void> addWord(VocabularyWord w) async {
+    await repo.add(w);
+    await init(); // refresh
   }
 
-  Future<void> deleteAtListIndex(int listIndex) async {
-    // listIndex is index in loaded list; need to map to repo index = listIndex (since we load sequentially)
-    final globalIndex =
-        listIndex; // because we loaded sequential chunk starting at 0
-    await repo.delete(globalIndex);
-    await init(); // reload to keep indices consistent
+  Future<void> deleteAtListIndex(int index) async {
+    await repo.deleteByGlobalIndex(index);
+    await init(); // refresh
+  }
+
+  /// Yeni: update işlemini controller üzerinden yap
+  Future<void> updateAtListIndex(int index, VocabularyWord updated) async {
+    await repo.update(index, updated);
+    // update in-memory copy if the index is within loaded range
+    if (index >= 0 && index < loaded.length) {
+      loaded[index] = updated;
+    }
+    state = state.copyWith(); // notify UI
   }
 }
