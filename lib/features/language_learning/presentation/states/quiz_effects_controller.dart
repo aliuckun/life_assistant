@@ -1,10 +1,9 @@
+import 'dart:async';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-/// QuizEffectsController
-/// Doğru/yanlış sesleri, seri (streak) sistemi ve animasyon yönetimi.
-
+// --- UI: OVERLAY WIDGET ---
 class QuizEffectsOverlay extends StatelessWidget {
   final QuizEffectsController controller;
 
@@ -15,99 +14,131 @@ class QuizEffectsOverlay extends StatelessWidget {
     return ListenableBuilder(
       listenable: controller,
       builder: (context, child) {
-        return Stack(
-          children: [
-            // Streak göstergesi
-            if (controller.showStreakUI)
-              Positioned(
-                top: 40,
-                left: 0,
-                right: 0,
-                child: AnimatedOpacity(
-                  opacity: controller.showStreakUI ? 1.0 : 0.0,
-                  duration: const Duration(milliseconds: 300),
-                  child: Text(
-                    "🔥 Streak: ${controller.streak}",
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.orange,
-                      shadows: [
-                        Shadow(
-                          blurRadius: 10.0,
-                          color: Colors.black45,
-                          offset: Offset(2, 2),
+        // PointerEvents.none ile tıklamaları arkaya geçiriyoruz
+        return IgnorePointer(
+          ignoring: true,
+          child: Stack(
+            children: [
+              // --- DÜZELTİLEN KISIM: STREAK GÖSTERGESİ ---
+              if (controller.showStreakUI)
+                Positioned(
+                  top: 0, // En tepeye sabitledik (eskiden 80'di)
+                  left: 0,
+                  right: 0,
+                  child: SafeArea(
+                    // Çentik/Notch alanını korur
+                    child: Padding(
+                      padding: const EdgeInsets.only(
+                        top: 10,
+                      ), // Tepeden hafif boşluk
+                      child: AnimatedOpacity(
+                        opacity: controller.showStreakUI ? 1.0 : 0.0,
+                        duration: const Duration(milliseconds: 300),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              "🔥 STREAK 🔥",
+                              style: TextStyle(
+                                fontSize:
+                                    14, // Yazıyı biraz küçülttük ki yer kaplamasın
+                                fontWeight: FontWeight.w900,
+                                color: Colors.orange[300],
+                                letterSpacing: 4,
+                                shadows: const [
+                                  Shadow(blurRadius: 5, color: Colors.black),
+                                ],
+                              ),
+                            ),
+                            Text(
+                              "${controller.streak}",
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                fontSize: 40, // Rakam boyutunu optimize ettik
+                                fontWeight: FontWeight.bold,
+                                color: Colors.orange,
+                                shadows: [
+                                  Shadow(
+                                    blurRadius: 10.0,
+                                    color: Colors.black,
+                                    offset: Offset(2, 2),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                         ),
-                      ],
+                      ),
                     ),
                   ),
                 ),
-              ),
+              // ---------------------------------------------
 
-            // Ateş animasyonu (Lottie yerine basit animasyon)
-            if (controller.showFire)
-              Center(
-                child: TweenAnimationBuilder<double>(
-                  key: ValueKey('fire_${controller.streak}'),
-                  tween: Tween(begin: 0.0, end: 1.0),
-                  duration: const Duration(milliseconds: 500),
-                  builder: (context, value, child) {
-                    return Transform.scale(
-                      scale: 0.5 + (value * 0.5),
-                      child: Opacity(
-                        opacity: value,
-                        child: Container(
-                          width: 180,
-                          height: 180,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            gradient: RadialGradient(
-                              colors: _getFireColors(controller.fireLevel),
+              // Alev Animasyonu (Düzeltilmiş Clamp'li versiyon)
+              if (controller.showFire)
+                Center(
+                  child: TweenAnimationBuilder<double>(
+                    key: ValueKey('fire_${controller.streak}'),
+                    tween: Tween(begin: 0.0, end: 1.0),
+                    duration: const Duration(milliseconds: 500),
+                    curve: Curves.elasticOut,
+                    builder: (context, value, child) {
+                      return Transform.scale(
+                        scale: 0.5 + (value * 0.8),
+                        child: Opacity(
+                          opacity: value.clamp(0.0, 1.0), // Hata önleyici clamp
+                          child: Container(
+                            width: 200,
+                            height: 200,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              gradient: RadialGradient(
+                                colors: _getFireColors(controller.fireLevel),
+                                stops: const [0.4, 0.7, 1.0],
+                              ),
                             ),
-                          ),
-                          child: Center(
-                            child: Text(
-                              _getFireEmoji(controller.fireLevel),
-                              style: const TextStyle(fontSize: 80),
+                            child: Center(
+                              child: Text(
+                                _getFireEmoji(controller.fireLevel),
+                                style: const TextStyle(fontSize: 90),
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                    );
-                  },
+                      );
+                    },
+                  ),
                 ),
-              ),
 
-            // Yanlış animasyonu
-            if (controller.showFailAnimation)
-              Center(
-                child: TweenAnimationBuilder<double>(
-                  key: const ValueKey('fail_animation'),
-                  tween: Tween(begin: 0.0, end: 1.0),
-                  duration: const Duration(milliseconds: 400),
-                  builder: (context, value, child) {
-                    return Transform.scale(
-                      scale: 1.0 + (value * 0.3),
-                      child: Opacity(
-                        opacity: 1.0 - value,
-                        child: Container(
-                          width: 200,
-                          height: 200,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: Colors.red.withOpacity(0.3),
-                          ),
-                          child: const Center(
-                            child: Text('❌', style: TextStyle(fontSize: 100)),
+              // Hata Animasyonu (Kocaman X)
+              if (controller.showFailAnimation)
+                Center(
+                  child: TweenAnimationBuilder<double>(
+                    key: const ValueKey('fail_animation'),
+                    tween: Tween(begin: 0.0, end: 1.0),
+                    duration: const Duration(milliseconds: 400),
+                    curve: Curves.bounceOut,
+                    builder: (context, value, child) {
+                      return Transform.scale(
+                        scale: 0.8 + (value * 0.4),
+                        child: Opacity(
+                          opacity: (1.0 - (value * 0.2)).clamp(0.0, 1.0),
+                          child: const Text(
+                            '❌',
+                            style: TextStyle(
+                              fontSize: 120,
+                              shadows: [
+                                Shadow(blurRadius: 20, color: Colors.black),
+                              ],
+                            ),
                           ),
                         ),
-                      ),
-                    );
-                  },
+                      );
+                    },
+                  ),
                 ),
-              ),
-          ],
+            ],
+          ),
         );
       },
     );
@@ -116,216 +147,196 @@ class QuizEffectsOverlay extends StatelessWidget {
   List<Color> _getFireColors(int level) {
     switch (level) {
       case 1:
-        return [Colors.orange, Colors.deepOrange, Colors.transparent];
+        return [
+          Colors.yellow.withOpacity(0.5),
+          Colors.orange.withOpacity(0.3),
+          Colors.transparent,
+        ];
       case 2:
-        return [Colors.deepOrange, Colors.red, Colors.transparent];
+        return [
+          Colors.orange.withOpacity(0.6),
+          Colors.deepOrange.withOpacity(0.4),
+          Colors.transparent,
+        ];
       case 3:
-        return [Colors.red, Colors.purple, Colors.transparent];
+        return [
+          Colors.red.withOpacity(0.7),
+          Colors.purple.withOpacity(0.5),
+          Colors.transparent,
+        ];
       default:
-        return [Colors.yellow, Colors.orange, Colors.transparent];
+        return [
+          Colors.white.withOpacity(0.2),
+          Colors.transparent,
+          Colors.transparent,
+        ];
     }
   }
 
   String _getFireEmoji(int level) {
-    switch (level) {
-      case 1:
-        return '🔥';
-      case 2:
-        return '🔥🔥';
-      case 3:
-        return '🔥🔥🔥';
-      default:
-        return '✨';
-    }
+    if (level >= 3) return '👿';
+    if (level == 2) return '🔥';
+    if (level == 1) return '⚡';
+    return '✨';
   }
 }
 
+// --- LOGIC: CONTROLLER ---
 class QuizEffectsController extends ChangeNotifier {
-  final _audioPlayers = <AudioPlayer>[];
+  final List<AudioPlayer> _activePlayers = [];
 
   int streak = 0;
   bool showStreakUI = false;
   bool showFire = false;
   bool showFailAnimation = false;
+  int fireLevel = 0;
 
-  /// Alev yoğunluk seviyeleri
-  int fireLevel = 0; // 0 = yok, 1, 2, 3...
-
-  /// Aynı anda birden fazla ses oynatabilmek için yeni AudioPlayer üretir
-  AudioPlayer _newPlayer() {
+  /// Yeni bir player oluşturur
+  AudioPlayer _createPlayer() {
     final p = AudioPlayer();
-    // Android'de aynı anda birden fazla ses çalabilmesi için
+
+    // --- DÜZELTİLEN KISIM BURASI ---
     p.setAudioContext(
       AudioContext(
         iOS: AudioContextIOS(
+          // HATA ÇÖZÜMÜ: 'mixWithOthers' kullanmak için 'playback' seçilmeli.
           category: AVAudioSessionCategory.playback,
-          options: {AVAudioSessionOptions.mixWithOthers}, // Liste yerine Set
+          options: {AVAudioSessionOptions.mixWithOthers},
         ),
         android: AudioContextAndroid(
           isSpeakerphoneOn: false,
           stayAwake: false,
-          contentType: AndroidContentType.music,
+          contentType: AndroidContentType.sonification,
           usageType: AndroidUsageType.game,
-          audioFocus: AndroidAudioFocus.none, // ÖNEMLI: Audio focus isteme
+          audioFocus: AndroidAudioFocus.none,
         ),
       ),
     );
-    _audioPlayers.add(p);
+    // ------------------------------
+
+    _activePlayers.add(p);
+
+    p.onPlayerComplete.listen((_) {
+      _disposePlayer(p);
+    });
+
     return p;
   }
 
-  /// Doğru cevaptan sonra tetiklenir
+  void _disposePlayer(AudioPlayer p) {
+    p.dispose();
+    _activePlayers.remove(p);
+  }
+
   Future<void> onCorrect() async {
     streak++;
-
-    // Streak UI aç
     showStreakUI = true;
-
-    // Fire aç
     showFire = true;
 
-    // Fire Level belirleme
-    if (streak >= 8) {
+    // Seviye
+    if (streak >= 10)
       fireLevel = 3;
-    } else if (streak >= 5) {
+    else if (streak >= 5)
       fireLevel = 2;
-    } else if (streak >= 3) {
+    else if (streak >= 2)
       fireLevel = 1;
-    } else {
+    else
       fireLevel = 0;
-    }
 
-    // Ses seçimi
+    notifyListeners();
+
+    // Animasyonu kapatma zamanlayıcısı (Ses hatası olsa bile çalışması için try dışında tutuyoruz)
+    // Sadece görüntü temizliği için timer başlat:
+    _scheduleFireCleanup();
+
+    // Sesleri Çal
     try {
       if (streak == 1) {
-        debugPrint("STREAK 1 → FIRST sesleri oynatılıyor");
         await _playMulti([
           "Killstreak_SFX_Multikill_Point_First.ogg",
           "Killstreak_SFX_Multikill_Melody_First.ogg",
         ]);
       } else if (streak == 2) {
-        debugPrint("STREAK 2 → DOUBLE sesleri oynatılıyor");
         await _playMulti([
           "Killstreak_SFX_Multikill_Point_Double.ogg",
           "Killstreak_SFX_Multikill_Melody_Double.ogg",
         ]);
       } else if (streak == 3) {
-        debugPrint("STREAK 3 → TRIPLE sesleri oynatılıyor");
         await _playMulti([
           "Killstreak_SFX_Multikill_Point_Triple.ogg",
           "Killstreak_SFX_Multikill_Melody_Triple.ogg",
         ]);
       } else if (streak == 4) {
-        debugPrint("STREAK 4 → QUADRA sesleri oynatılıyor");
         await _playMulti([
           "Killstreak_SFX_Multikill_Point_Quadra.ogg",
           "Killstreak_SFX_Multikill_Melody_Quadra.ogg",
         ]);
       } else if (streak >= 5) {
-        debugPrint("STREAK 5+ → PENTA sesleri oynatılıyor");
         await _playMulti([
           "Killstreak_SFX_Multikill_Point_Penta.ogg",
           "Killstreak_SFX_Multikill_Melody_Penta.ogg",
         ]);
-      } else {
-        debugPrint("DEFAULT ses oynuyor");
-        await _playSingle("Killstreak_SFX_Multikill_Point_First.ogg");
       }
     } catch (e) {
-      debugPrint("Ses oynatma hatası: $e");
+      debugPrint("Ses hatası (onCorrect): $e");
+      // Hata olsa bile uygulama çökmesin
     }
+  }
 
-    notifyListeners();
-
-    // 800ms sonra ateş animasyonunu kapat
+  void _scheduleFireCleanup() {
+    // Eski timer varsa iptal etmek yerine basit delay kullanıyoruz,
+    // UI her zaman son gelen emri dinler.
     Future.delayed(const Duration(milliseconds: 800), () {
+      // Eğer kullanıcı çok hızlı basıyorsa ve hala streak devam ediyorsa hemen kapatma
+      // Ama basitlik adına kapatıp tekrar açılması daha iyi feedback verir.
       showFire = false;
+      // Streak UI bir süre daha kalsın istersek buraya if koyabiliriz ama şimdilik kapatalım
       notifyListeners();
     });
   }
 
-  /// Yanlış cevaptan sonra tetiklenir
   Future<void> onWrong() async {
-    // Seri sıfırla
     streak = 0;
-
-    // Fire kapat
-    showFire = false;
     fireLevel = 0;
-
-    // Streak UI gizle
+    showFire = false;
     showStreakUI = false;
-
-    // Yanlış animasyon göster
     showFailAnimation = true;
-
-    // Yanlış sesi
-    try {
-      await _playSingle("Killstreak_SFX_Assist.ogg");
-    } catch (e) {
-      debugPrint("Ses oynatma hatası: $e");
-    }
-
     notifyListeners();
 
-    // 1 saniye sonra animasyonu kapat
-    Future.delayed(const Duration(seconds: 1), () {
+    // Cleanup Timer
+    Future.delayed(const Duration(milliseconds: 800), () {
       showFailAnimation = false;
       notifyListeners();
     });
-  }
 
-  /// Tek ses - hata kontrolü ile
-  Future<void> _playSingle(String assetPath) async {
     try {
-      // Dosyanın varlığını kontrol et
-      final fullPath = 'assets/audio/$assetPath';
-      await rootBundle.load(fullPath);
-
-      final p = _newPlayer();
-      await p.play(AssetSource('audio/$assetPath'));
+      await _playSingle("Killstreak_SFX_Assist.ogg");
     } catch (e) {
-      debugPrint("⚠️ Ses dosyası bulunamadı: $assetPath - $e");
+      debugPrint("Ses hatası (onWrong): $e");
     }
   }
 
-  /// Aynı anda birden fazla ses - hata kontrolü ile
-  Future<void> _playMulti(List<String> assets) async {
-    final players = <AudioPlayer>[];
+  Future<void> _playSingle(String file) async {
+    final p = _createPlayer();
+    await p.play(AssetSource('audio/$file'));
+  }
 
-    // Önce tüm player'ları hazırla
-    for (final s in assets) {
-      try {
-        final fullPath = 'assets/audio/$s';
-        await rootBundle.load(fullPath);
-
-        final p = _newPlayer();
-        players.add(p);
-      } catch (e) {
-        debugPrint("⚠️ Ses dosyası bulunamadı: $s - $e");
-      }
-    }
-
-    // Sonra hepsini aynı anda başlat
-    for (int i = 0; i < players.length && i < assets.length; i++) {
-      unawaited(players[i].play(AssetSource('audio/${assets[i]}')));
+  Future<void> _playMulti(List<String> files) async {
+    for (final f in files) {
+      final p = _createPlayer();
+      // await p.play(...) kullanmıyoruz, hepsi aynı anda başlasın
+      p.play(AssetSource('audio/$f')).catchError((e) {
+        debugPrint("Dosya oynatılamadı: $f -> $e");
+      });
     }
   }
 
-  /// Temizleme
   @override
   void dispose() {
-    for (var p in _audioPlayers) {
+    for (var p in _activePlayers) {
       p.dispose();
     }
-    _audioPlayers.clear();
+    _activePlayers.clear();
     super.dispose();
   }
-}
-
-/// Async işlemleri beklemeden devam etmek için
-void unawaited(Future<void> future) {
-  future.catchError((error) {
-    debugPrint("Async hata: $error");
-  });
 }

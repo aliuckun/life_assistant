@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/vocabulary_word.dart';
 import '../../data/vocabulary_repository.dart';
+import 'package:hive/hive.dart';
 
 final vocabularyRepositoryProvider = Provider<VocabularyRepository>((ref) {
   return VocabularyRepository();
@@ -60,6 +61,45 @@ class VocabularyController extends StateNotifier<VocabularyState> {
     state = state.copyWith(isLoading: false);
   }
 
+  // *** DÜZELTİLEN KISIM BAŞLANGICI ***
+  Future<void> addAllWords(List<VocabularyWord> newWords) async {
+    if (newWords.isEmpty) return;
+
+    // UI'a "İşlem yapılıyor" bilgisini ver
+    state = state.copyWith(isLoading: true);
+
+    try {
+      // Hata 1 ve 2 Çözümü:
+      // 'state' bir liste değildir, onu maniple etmeye çalışma.
+      // Kelimeleri doğrudan repository üzerinden veritabanına ekle.
+
+      for (var word in newWords) {
+        // Basit bir kontrol: Şu an ekranda yüklü olanlarda var mı?
+        // (Not: Tüm veritabanını kontrol etmek istersen repo içinde kontrol yapmalısın)
+        final exists = loaded.any(
+          (w) => w.german.toLowerCase() == word.german.toLowerCase(),
+        );
+
+        if (!exists) {
+          // Repo senin için Hive işlemlerini halleder.
+          // Eğer repo.add metodun yoksa aşağıda tanımladığım gibi ekle.
+          await repo.add(word);
+        }
+      }
+
+      // Ekleme bitti, listeyi en baştan temiz bir şekilde yenile
+      // Bu sayede yeni eklenenler de listeye dahil olur.
+      await init();
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        hasError: true,
+        error: e.toString(),
+      );
+    }
+  }
+
+  // *** DÜZELTİLEN KISIM BİTİŞİ ***
   Future<void> loadMore() async {
     if (!hasMore) return;
     if (_loadingMore) return;

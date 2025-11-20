@@ -19,6 +19,10 @@ dependencies:
   audioplayers: ^6.0.0
   lottie: ^1.2.2
 
+  # language sayfası için dosya seçimi  
+  file_picker: ^8.1.4  # Dosya seçme penceresi açmak için
+  csv: ^6.0.0          # Seçilen CSV dosyasını anlamlı veriye çevirmek için
+
   # UUID
   uuid: ^4.2.2
   intl: ^0.18.0
