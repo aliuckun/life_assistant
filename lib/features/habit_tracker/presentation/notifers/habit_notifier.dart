@@ -1,15 +1,16 @@
 // lib/features/habit_tracker/presentation/state/habit_notifier.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-// 🚨 İlerideki hataları önlemek için tam import yolu kullanıldı:
 import 'package:life_assistant/features/habit_tracker/domain/entities/habit.dart';
 import '../../data/habit_repository.dart';
 import '../../data/habit_repository_imlp.dart';
 
-// State yapısı
+// 🔔 Bildirim Servisi Import Edildi (Yolunu kendi proje yapına göre kontrol et)
+import '../../../../core/services/notification_service.dart';
+
+// State yapısı (Değişiklik yok)
 @immutable
 class HabitTrackerState {
-  // ... (State sınıfı aynı kalır)
   final List<Habit> habits;
   final DateTime selectedDate;
   final bool isLoadingInitial;
@@ -48,7 +49,11 @@ class HabitTrackerState {
 // Notifier: State'i yöneten ana sınıf
 class HabitNotifier extends StateNotifier<HabitTrackerState> {
   final HabitRepository _repository;
-  final int _limit = 5; // Lazy Loading için limit
+
+  // 🔔 Bildirim Servisi Örneği Oluşturuldu
+  final NotificationService _notificationService = NotificationService();
+
+  final int _limit = 10; // Lazy Loading için limit
 
   HabitNotifier(this._repository)
     : super(
@@ -61,6 +66,8 @@ class HabitNotifier extends StateNotifier<HabitTrackerState> {
           offset: 0,
         ),
       ) {
+    // Bildirim servisini başlat (Eğer main.dart'ta başlatmadıysan burada garanti olsun)
+    _notificationService.initialize();
     fetchInitialHabits(); // Sayfa açılışında ilk verileri çek
   }
 
@@ -69,7 +76,6 @@ class HabitNotifier extends StateNotifier<HabitTrackerState> {
   // ------------------------------------------------------------------------
 
   Future<void> fetchInitialHabits() async {
-    // ... (metot içeriği aynı)
     if (state.isLoadingInitial) return;
     state = state.copyWith(isLoadingInitial: true, offset: 0, hasMore: true);
 
@@ -88,7 +94,6 @@ class HabitNotifier extends StateNotifier<HabitTrackerState> {
     }
   }
 
-  // 🚨 Hata Çözümü: Bu metot Notifier içinde bulunmalıdır.
   Future<void> fetchNextHabits() async {
     if (state.isLoadingMore || !state.hasMore) return;
     state = state.copyWith(isLoadingMore: true);
@@ -112,7 +117,7 @@ class HabitNotifier extends StateNotifier<HabitTrackerState> {
   }
 
   // ------------------------------------------------------------------------
-  // ➕ CRUD ve Diğer İşlemler (Aynı kalır)
+  // ➕ CRUD ve BİLDİRİM İşlemleri
   // ------------------------------------------------------------------------
 
   void setSelectedDate(DateTime date) {
@@ -121,16 +126,48 @@ class HabitNotifier extends StateNotifier<HabitTrackerState> {
 
   Future<void> addHabit(Habit habit) async {
     await _repository.addHabit(habit);
+
+    // 🔔 BİLDİRİM EKLEME
+    // Eğer kullanıcı bildirim istiyorsa ve saat seçiliyse planla
+    if (habit.enableNotification && habit.notificationTime != null) {
+      await _notificationService.scheduleDailyHabitNotification(
+        id: habit.id.hashCode, // String ID'yi int'e çeviriyoruz
+        title: "Hatırlatıcı: ${habit.name}",
+        body: "Alışkanlığını tamamlama vakti geldi! 🔥",
+        time: habit.notificationTime!,
+      );
+    }
+
     await fetchInitialHabits();
   }
 
   Future<void> deleteHabit(String id) async {
+    // 🔔 BİLDİRİMİ SİL
+    // Alışkanlık silindiğinde bildirimi de iptal etmeliyiz
+    await _notificationService.cancelNotification(id.hashCode);
+
     await _repository.deleteHabit(id);
     await fetchInitialHabits();
   }
 
   Future<void> updateHabit(Habit habit) async {
     await _repository.updateHabit(habit);
+
+    // 🔔 BİLDİRİM GÜNCELLEME
+    // 1. Önceki olası bildirimi temizle (saat değişmiş veya kapatılmış olabilir)
+    await _notificationService.cancelNotification(habit.id.hashCode);
+
+    // 2. Eğer bildirim hala aktifse ve saat varsa yeniden kur
+    if (habit.enableNotification && habit.notificationTime != null) {
+      await _notificationService.scheduleDailyHabitNotification(
+        id: habit.id.hashCode,
+        title: "Hatırlatıcı: ${habit.name}",
+        body: "Alışkanlığını tamamlama vakti geldi! 🔥",
+        time: habit.notificationTime!,
+      );
+    }
+
+    // State güncellemesi (Repo'dan çekmek yerine yerel listeyi güncellemek daha hızlıdır)
     final index = state.habits.indexWhere((h) => h.id == habit.id);
     if (index != -1) {
       final newHabits = List<Habit>.from(state.habits);
@@ -141,8 +178,6 @@ class HabitNotifier extends StateNotifier<HabitTrackerState> {
 
   // Alışkanlığı artırma/tamamlama (Progress güncelleyen ana metot)
   void incrementHabit(Habit habit, DateTime date) {
-    // 🚨 KESİN ÇÖZÜM: Tarihin saatini sıfırlayıp SADECE tarih kısmını alıyoruz
-    // Bu, milisaniyelerden kaynaklanabilecek hataları önler.
     final targetDate = DateUtils.dateOnly(date);
     final dateKey = targetDate.toIso8601String();
 
@@ -151,30 +186,29 @@ class HabitNotifier extends StateNotifier<HabitTrackerState> {
     }
 
     final currentProgress = habit.getProgressForDate(targetDate);
-    // 🚨 Progress Map'ini KOPYALA
     final newProgress = Map<String, int>.from(habit.progress);
 
     if (habit.type == HabitType.quit) {
-      // Eğer başarılıysa (currentProgress == 0), tıklandığında başarısız kaydet (1)
-      // Eğer başarısızsa (currentProgress == 1), tıklandığında geri al (0)
       newProgress[dateKey] = (currentProgress == 0) ? 1 : 0;
     } else {
-      // GAIN MANTIĞI: Hedefe ulaşılana kadar artır
       if (currentProgress < habit.targetCount) {
         newProgress[dateKey] = currentProgress + 1;
       } else {
-        // Tamamlanmışsa, sıfırla
         newProgress[dateKey] = 0;
       }
     }
 
     final updatedHabit = habit.copyWith(progress: newProgress);
-    updateHabit(updatedHabit); // UI güncellemesi için updateHabit çağrılır
+
+    // Burada updateHabit çağırıyoruz, dolayısıyla bildirim mantığı orada zaten çalışacak.
+    // Ancak sadece "progress" değiştiği için bildirim saatini tekrar kurmaya gerek yok aslında.
+    // Performans için _repository.updateHabit(habit) direkt çağrılabilir ama
+    // Şimdilik tutarlılık için updateHabit metodunu kullanıyoruz.
+    updateHabit(updatedHabit);
   }
 
   // Özet verisi metodu
   Future<Map<String, dynamic>> getSummaryData() async {
-    // ... (metot içeriği aynı kalır)
     final habits = await _repository.getAllHabits();
     if (habits.isEmpty) return {'totalHabits': 0, 'completionRate': 0.0};
 
@@ -201,23 +235,22 @@ class HabitNotifier extends StateNotifier<HabitTrackerState> {
   }
 }
 
-// ✅ YENİ:
+// Provider Tanımları (Aynı kalır)
 final habitRepositoryProvider = FutureProvider<HabitRepository>((ref) async {
   return await HabitRepositoryImpl.getInstance();
 });
 
 final habitListProvider =
     StateNotifierProvider<HabitNotifier, HabitTrackerState>((ref) {
-      // Repository henüz yüklenmemişse boş bir repository kullan
       final repoAsync = ref.watch(habitRepositoryProvider);
       return repoAsync.when(
         data: (repo) => HabitNotifier(repo),
-        loading: () => HabitNotifier(_DummyRepository()), // Geçici
+        loading: () => HabitNotifier(_DummyRepository()),
         error: (_, __) => HabitNotifier(_DummyRepository()),
       );
     });
 
-// Geçici dummy repository (loading sırasında)
+// Geçici dummy repository
 class _DummyRepository implements HabitRepository {
   @override
   Future<void> addHabit(Habit habit) async {}

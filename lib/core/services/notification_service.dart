@@ -21,15 +21,22 @@ class NotificationService {
 
     // 🚨 Timezone Verisini Başlat
     tz.initializeTimeZones();
-    // Yerel zaman dilimini al
-    final location = tz.getLocation(tz.local.name);
-    tz.setLocalLocation(location);
+
+    // DÜZELTİLEN KISIM: Gereksiz getClass kontrolü kaldırıldı
+    try {
+      // Türkiye saati için 'Europe/Istanbul' kullanıyoruz.
+      // Eğer bu ID veritabanında bulunamazsa catch bloğuna düşer ve UTC yapar.
+      tz.setLocalLocation(tz.getLocation('Europe/Istanbul'));
+    } catch (e) {
+      debugPrint('Timezone hatası veya bulunamadı: $e, UTC kullanılıyor.');
+      tz.setLocalLocation(tz.getLocation('UTC'));
+    }
 
     // Android ayarları
     const AndroidInitializationSettings androidSettings =
         AndroidInitializationSettings('@mipmap/ic_launcher');
 
-    // iOS ayarları (isteğe bağlı)
+    // iOS ayarları
     const DarwinInitializationSettings iosSettings =
         DarwinInitializationSettings(
           requestAlertPermission: true,
@@ -69,69 +76,152 @@ class NotificationService {
   /// Bildirime tıklandığında çalışacak fonksiyon
   void _onNotificationTapped(NotificationResponse response) {
     debugPrint('Bildirime tıklandı: ${response.payload}');
-    // İsterseniz burada belirli bir sayfaya yönlendirme yapabilirsiniz
+    // Navigation işlemleri buraya eklenebilir
   }
 
   // =========================================================
-  // 🚨 YENİ METOT: AJANDA İÇİN ZAMANLANMIŞ BİLDİRİM
+  // 🌿 BÖLÜM 1: HABIT TRACKER (GÜNLÜK TEKRARLI BİLDİRİM)
   // =========================================================
-  /// Belirli bir tarihte bildirim gönder
+
+  /// Her gün belirli bir saatte tekrarlayan bildirim kurar
+  Future<void> scheduleDailyHabitNotification({
+    required int id,
+    required String title,
+    required String body,
+    required TimeOfDay time,
+  }) async {
+    if (!_isInitialized) {
+      debugPrint('⚠️ Servis initialize edilmemiş, ediliyor...');
+    }
+    await initialize();
+
+    const AndroidNotificationDetails androidDetails =
+        AndroidNotificationDetails(
+          'daily_habit_channel', // Kanal ID
+          'Günlük Alışkanlıklar', // Kanal Adı
+          channelDescription: 'Alışkanlık hatırlatıcıları',
+          importance: Importance.max,
+          priority: Priority.high,
+          enableVibration: true,
+          playSound: true,
+        );
+
+    const NotificationDetails details = NotificationDetails(
+      android: androidDetails,
+      iOS: DarwinNotificationDetails(),
+    );
+
+    final scheduledTime = _nextInstanceOfTime(time);
+    debugPrint('📅 Hesaplanan Bildirim Zamanı: $scheduledTime'); // LOG 2
+    debugPrint(
+      '⌚ Şu anki Emülatör Saati: ${tz.TZDateTime.now(tz.local)}',
+    ); // LOG 3
+
+    try {
+      await _notifications.zonedSchedule(
+        id,
+        title,
+        body,
+        scheduledTime,
+        details,
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
+        matchDateTimeComponents: DateTimeComponents.time,
+        payload: 'habit_$id',
+      );
+      debugPrint('✅ Bildirim Başarıyla Android Sistemine İletildi!'); // LOG 4
+    } catch (e) {
+      debugPrint('❌ Bildirim Kurulurken HATA: $e'); // LOG 5
+    }
+
+    debugPrint('Habit bildirimi kuruldu: $time (ID: $id)');
+  }
+
+  // Yardımcı: Verilen saatin bir sonraki örneğini bul (Bugün geçtiyse yarına atar)
+  tz.TZDateTime _nextInstanceOfTime(TimeOfDay time) {
+    final tz.TZDateTime now = tz.TZDateTime.now(tz.local);
+    tz.TZDateTime scheduledDate = tz.TZDateTime(
+      tz.local,
+      now.year,
+      now.month,
+      now.day,
+      time.hour,
+      time.minute,
+    );
+
+    if (scheduledDate.isBefore(now)) {
+      scheduledDate = scheduledDate.add(const Duration(days: 1));
+    }
+    return scheduledDate;
+  }
+
+  // =========================================================
+  // 📅 BÖLÜM 2: AJANDA (TEK SEFERLİK TARİHLİ BİLDİRİM)
+  // =========================================================
+
+  /// Belirli bir tarihte tek seferlik bildirim gönder
   Future<void> scheduleNotification({
     required int id,
     required String title,
     required String body,
     required DateTime scheduleDate,
   }) async {
-    if (!_isInitialized) {
-      debugPrint("Bildirim servisi başlatılmamış.");
-      return;
-    }
+    if (!_isInitialized) await initialize();
 
     // Zamanı TZDateTime objesine çevir
-    final tz.TZDateTime scheduledDate = tz.TZDateTime.from(
+    final tz.TZDateTime scheduledTZDate = tz.TZDateTime.from(
       scheduleDate,
       tz.local,
     );
 
     // Eğer geçmiş bir tarihse, bildirim planlama.
-    if (scheduledDate.isBefore(tz.TZDateTime.now(tz.local))) {
+    if (scheduledTZDate.isBefore(tz.TZDateTime.now(tz.local))) {
       debugPrint("Bildirim tarihi geçmiş, planlanmadı.");
       return;
     }
 
     const AndroidNotificationDetails androidDetails =
         AndroidNotificationDetails(
-          'agenda_reminder_channel', // Yeni kanal ID
+          'agenda_reminder_channel', // Kanal ID
           'Ajanda Hatırlatıcıları', // Kanal Adı
           channelDescription: 'Ajanda görevleri için hatırlatıcılar',
           importance: Importance.high,
           priority: Priority.high,
           enableVibration: true,
-          playSound: true,
           color: Colors.blueGrey,
           colorized: true,
         );
 
     const NotificationDetails details = NotificationDetails(
       android: androidDetails,
+      iOS: DarwinNotificationDetails(),
     );
 
     await _notifications.zonedSchedule(
       id,
       title,
       body,
-      scheduledDate,
+      scheduledTZDate,
       details,
       uiLocalNotificationDateInterpretation:
           UILocalNotificationDateInterpretation.absoluteTime,
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-      matchDateTimeComponents: DateTimeComponents.dateAndTime,
+      matchDateTimeComponents:
+          DateTimeComponents.dateAndTime, // Tarih ve Saate göre tek sefer
+      payload: 'agenda_$id',
     );
-    debugPrint('Bildirim başarıyla planlandı: ID $id, Tarih $scheduledDate');
+    debugPrint('Ajanda bildirimi planlandı: ID $id, Tarih $scheduledTZDate');
   }
 
-  /// 🚨 ODAKLANMA KALKANI BİLDİRİMİ (Tam Ekran + Titreşim + Ses) - Kodu aynı kaldı
+  // =========================================================
+  // 🛡️ BÖLÜM 3: ODAKLANMA KALKANI (ACİL & TAM EKRAN)
+  // =========================================================
+
+  /// ODAKLANMA KALKANI BİLDİRİMİ (Tam Ekran + Titreşim + Ses)
   Future<void> showLimitExceededNotification({required int minutes}) async {
+    if (!_isInitialized) await initialize();
+
     const AndroidNotificationDetails androidDetails =
         AndroidNotificationDetails(
           'distraction_timer_channel', // Kanal ID
@@ -150,11 +240,11 @@ class NotificationService {
 
     const NotificationDetails details = NotificationDetails(
       android: androidDetails,
+      iOS: DarwinNotificationDetails(),
     );
 
     await _notifications.show(
-      // Bildirim ID
-      1,
+      99999, // Sabit ID (Her zaman üstüne yazar)
       '⚠️ ODAKLANMA KORUMASI DEVREDE!',
       '$minutes dakikalık dikkat dağılma limiti doldu. Lütfen odağına geri dön!',
       details,
@@ -162,7 +252,11 @@ class NotificationService {
     );
   }
 
-  /// Bildirimi iptal et
+  // =========================================================
+  // 🗑️ İPTAL İŞLEMLERİ
+  // =========================================================
+
+  /// Tek bir bildirimi iptal et
   Future<void> cancelNotification(int id) async {
     await _notifications.cancel(id);
   }
