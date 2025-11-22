@@ -10,6 +10,7 @@ class FitnessTrackerState {
   final List<FoodEntry> foodEntries;
   final DateTime selectedDate;
   final int totalCalories;
+  final int targetCalories; // YENİ: Hedef Kalori
   final bool isLoading;
   final bool hasMore;
   final int offset;
@@ -18,23 +19,28 @@ class FitnessTrackerState {
     required this.foodEntries,
     required this.selectedDate,
     required this.totalCalories,
+    this.targetCalories = 2000, // Varsayılan hedef 2000 kcal
     required this.isLoading,
     required this.hasMore,
     required this.offset,
   });
 
+  // copyWith metodunu da güncelleyin:
   FitnessTrackerState copyWith({
     List<FoodEntry>? foodEntries,
     DateTime? selectedDate,
     int? totalCalories,
+    int? targetCalories,
     bool? isLoading,
     bool? hasMore,
     int? offset,
+    s,
   }) {
     return FitnessTrackerState(
       foodEntries: foodEntries ?? this.foodEntries,
       selectedDate: selectedDate ?? this.selectedDate,
       totalCalories: totalCalories ?? this.totalCalories,
+      targetCalories: targetCalories ?? this.targetCalories,
       isLoading: isLoading ?? this.isLoading,
       hasMore: hasMore ?? this.hasMore,
       offset: offset ?? this.offset,
@@ -59,9 +65,19 @@ class FitnessNotifier extends StateNotifier<FitnessTrackerState> {
       ) {
     // İlk verileri ve kaloriyi çek
     _fetchDataForSelectedDate(state.selectedDate);
+    _initData();
   }
 
   // --- Veri Çekme İşlemleri ---
+
+  Future<void> _initData() async {
+    // 1. Kayıtlı hedefi yükle
+    final savedTarget = await _repository.getTargetCalories();
+    state = state.copyWith(targetCalories: savedTarget);
+
+    // 2. Günlük verileri çek
+    await _fetchDataForSelectedDate(state.selectedDate);
+  }
 
   Future<void> setSelectedDate(DateTime date) async {
     final newDate = DateUtils.dateOnly(date);
@@ -121,6 +137,14 @@ class FitnessNotifier extends StateNotifier<FitnessTrackerState> {
 
   // --- CRUD İşlemleri ---
 
+  Future<void> updateTargetCalories(int newTarget) async {
+    // 1. Önce State'i güncelle (UI anında tepki versin)
+    state = state.copyWith(targetCalories: newTarget);
+
+    // 2. Arka planda Hive'a kaydet
+    await _repository.saveTargetCalories(newTarget);
+  }
+
   Future<void> addFoodEntry(FoodEntry entry) async {
     await _repository.addFoodEntry(entry);
     await _fetchDataForSelectedDate(state.selectedDate); // Listeyi yenile
@@ -173,6 +197,12 @@ final fitnessNotifierProvider =
 // 🔥 Dummy Repository (Loading durumu için)
 class _DummyFitnessRepository implements FitnessRepository {
   @override
+  Future<void> saveTargetCalories(int target) async {}
+
+  @override
+  Future<int> getTargetCalories() async => 2000;
+
+  @override
   Future<void> addFoodEntry(FoodEntry entry) async {}
 
   @override
@@ -205,6 +235,13 @@ class _DummyFitnessRepository implements FitnessRepository {
 
   @override
   Future<List<WorkoutEntry>> getWorkoutEntries(DateTime date) async => [];
+
+  // 👇 AŞAĞIDAKİ KISMI EKLEYİN (Eksik olan parça bu) 👇
+  @override
+  Future<List<FoodEntry>> getFoodEntriesByDateRange(
+    DateTime start,
+    DateTime end,
+  ) async => [];
 }
 
 // Kiloyu ve yemek özetini çeken ayrı bir Future Provider (Özet Sayfası için)

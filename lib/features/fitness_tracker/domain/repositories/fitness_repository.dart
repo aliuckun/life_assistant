@@ -8,6 +8,12 @@ abstract class FitnessRepository {
     required int limit,
     required int offset,
   });
+
+  Future<List<FoodEntry>> getFoodEntriesByDateRange(
+    DateTime start,
+    DateTime end,
+  );
+
   Future<List<FoodEntry>> getAllFoodEntries(); // Özet için tüm veriyi çek
   Future<int> getTotalCaloriesForDate(DateTime date);
   Future<void> addFoodEntry(FoodEntry entry);
@@ -21,4 +27,7 @@ abstract class FitnessRepository {
   // --- EGZERSİZ İŞLEMLERİ ---
   Future<void> addWorkoutEntry(WorkoutEntry entry);
   Future<List<WorkoutEntry>> getWorkoutEntries(DateTime date);
+
+  Future<void> saveTargetCalories(int target);
+  Future<int> getTargetCalories();
 }

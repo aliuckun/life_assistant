@@ -11,6 +11,8 @@ import 'core/services/notification_service.dart';
 import 'features/fitness_tracker/domain/entities/fitness_entities.dart';
 import 'features/habit_tracker/domain/entities/habit.dart';
 import 'features/money_tracking/domain/entities/transaction.dart';
+import 'package:intl/date_symbol_data_local.dart';
+
 // 🚨 YENİ EKLEME: AJANDA ADAPTÖRÜ
 import 'features/agenda/domain/models/agenda_item.dart';
 
@@ -23,7 +25,7 @@ const String appId = String.fromEnvironment(
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
+  await initializeDateFormatting('tr_TR', null);
   // 🔥 HIVE'I BAŞLAT - Path Provider ile (Daha güvenli)
   try {
     await Hive.initFlutter();

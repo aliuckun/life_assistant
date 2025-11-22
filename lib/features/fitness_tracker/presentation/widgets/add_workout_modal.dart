@@ -27,6 +27,7 @@ class _AddWorkoutModalState extends ConsumerState<AddWorkoutModal> {
     'Bacak',
     'Omuz',
     'Kol',
+    'Karın',
     'Kardiyo',
   ];
 

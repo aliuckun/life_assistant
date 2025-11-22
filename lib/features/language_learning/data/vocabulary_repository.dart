@@ -46,4 +46,10 @@ class VocabularyRepository {
     final key = _box!.keyAt(index);
     await _box!.delete(key);
   }
+
+  /// Quiz için tüm kelimeleri getirir (Lazy Loading olmadan)
+  List<VocabularyWord> getAllWords() {
+    if (_box == null || !_box!.isOpen) return [];
+    return _box!.values.toList();
+  }
 }

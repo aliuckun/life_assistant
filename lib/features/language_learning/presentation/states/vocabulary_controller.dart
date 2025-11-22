@@ -99,6 +99,10 @@ class VocabularyController extends StateNotifier<VocabularyState> {
     }
   }
 
+  List<VocabularyWord> getQuizPool() {
+    return repo.getAllWords();
+  }
+
   // *** DÜZELTİLEN KISIM BİTİŞİ ***
   Future<void> loadMore() async {
     if (!hasMore) return;

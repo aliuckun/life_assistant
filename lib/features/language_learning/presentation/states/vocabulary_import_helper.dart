@@ -1,8 +1,8 @@
-import 'dart:convert';
+import 'dart:convert'; // UTF-8 ve Latin1 için gerekli
 import 'dart:io';
 import 'package:csv/csv.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:flutter/foundation.dart'; // for debugPrint
+import 'package:flutter/foundation.dart';
 import '../../domain/vocabulary_word.dart';
 
 class VocabularyImportHelper {
@@ -16,51 +16,57 @@ class VocabularyImportHelper {
       );
 
       if (result == null) {
-        // Kullanıcı iptal etti
         return [];
       }
 
-      // 2. Dosyayı Oku
       String csvString;
+
+      // 2. Dosyayı Akıllıca Oku (Encoding Fix)
       if (kIsWeb) {
-        // Web için (byte array'den stringe)
         final bytes = result.files.single.bytes;
         if (bytes == null) return [];
-        csvString = utf8.decode(bytes);
+        csvString = utf8.decode(bytes, allowMalformed: true);
       } else {
-        // Mobil için (path üzerinden)
         final path = result.files.single.path;
         if (path == null) return [];
         final file = File(path);
-        csvString = await file.readAsString();
+
+        // Önce byte (sayısal veri) olarak oku
+        final bytes = await file.readAsBytes();
+
+        try {
+          // Önce standart UTF-8 dene
+          csvString = utf8.decode(bytes);
+        } catch (e) {
+          debugPrint("UTF-8 başarısız, Windows-1252/Latin1 deneniyor...");
+          // Hata verirse Latin1 (Windows ANSI) dene.
+          // Almanca karakterleri (ü,ö,ä) bu kurtarır.
+          csvString = latin1.decode(bytes);
+        }
       }
 
-      // 3. CSV Parse İşlemi (Satır satır ayır)
-      // List<List<dynamic>> döner -> [[German, Turkish, Type], [Hund, Köpek, noun], ...]
+      // 3. CSV Parse İşlemi
       List<List<dynamic>> rows = const CsvToListConverter().convert(
         csvString,
-        fieldDelimiter:
-            ',', // Excel genelde noktalı virgül (;) de kullanabilir, buraya dikkat.
+        fieldDelimiter: ',',
         eol: '\n',
       );
 
       List<VocabularyWord> newWords = [];
 
-      // Başlık satırı (Header) varsa atlamak için i=1 yapabilirsin.
-      // Biz güvenli olsun diye döngüde kontrol edelim.
       for (var row in rows) {
         if (row.isEmpty) continue;
-        if (row.length < 2) continue; // En az Almanca ve Türkçe olmalı
+        if (row.length < 2) continue;
 
         final german = row[0].toString().trim();
         final turkish = row[1].toString().trim();
 
-        // Header satırı geldiyse atla
-        if (german.toLowerCase() == 'german' ||
+        // Başlık satırını atla
+        if (german.toLowerCase().contains('german') ||
             german.toLowerCase() == 'almanca')
           continue;
 
-        // Tür belirleme (Varsayılan: Noun)
+        // Tür belirleme
         VocabularyType type = VocabularyType.noun;
         if (row.length > 2) {
           final typeStr = row[2].toString().trim().toLowerCase();
@@ -71,16 +77,15 @@ class VocabularyImportHelper {
           }
         }
 
-        // Yeni kelimeyi oluştur
         newWords.add(
           VocabularyWord(
             german: german,
             turkish: turkish,
-            // lastReviewed'u çok eski bir tarih yapıyoruz ki Quiz algoritması hemen sorsun.
-            lastReviewed: DateTime(2000),
+            lastReviewed: DateTime(
+              2000,
+            ), // Çözüm: Çok eski bir tarih veriyoruz, // Hiç çözülmemiş olarak işaretle
             type: type,
-            conjugations:
-                null, // CSV'den karmaşık yapı çekmek zordur, şimdilik null
+            conjugations: null,
           ),
         );
       }
@@ -88,7 +93,7 @@ class VocabularyImportHelper {
       return newWords;
     } catch (e) {
       debugPrint("CSV Import Hatası: $e");
-      rethrow; // Hatayı UI'da göstermek için fırlat
+      rethrow;
     }
   }
 }

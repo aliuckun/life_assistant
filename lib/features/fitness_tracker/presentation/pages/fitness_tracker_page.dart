@@ -46,6 +46,52 @@ class _FitnessTrackerPageState extends ConsumerState<FitnessTrackerPage> {
 
   // --- Modallar ---
 
+  void _showEditTargetDialog(BuildContext context, int currentTarget) {
+    final controller = TextEditingController(text: currentTarget.toString());
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: Colors.grey[900],
+        title: const Text(
+          'Hedef Kalori',
+          style: TextStyle(color: Colors.white),
+        ),
+        content: TextField(
+          controller: controller,
+          keyboardType: TextInputType.number,
+          style: const TextStyle(color: Colors.white),
+          decoration: const InputDecoration(
+            hintText: 'Örn: 2200',
+            hintStyle: TextStyle(color: Colors.white30),
+            enabledBorder: UnderlineInputBorder(
+              borderSide: BorderSide(color: Colors.amber),
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('İptal'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.amber),
+            onPressed: () {
+              final val = int.tryParse(controller.text);
+              if (val != null) {
+                // Notifier üzerinden güncelle
+                ref
+                    .read(fitnessNotifierProvider.notifier)
+                    .updateTargetCalories(val);
+              }
+              Navigator.pop(context);
+            },
+            child: const Text('Kaydet', style: TextStyle(color: Colors.black)),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showAddFoodModal() {
     showModalBottomSheet(
       context: context,
@@ -120,7 +166,11 @@ class _FitnessTrackerPageState extends ConsumerState<FitnessTrackerPage> {
           const DateSelector(),
 
           // 2. Toplam Kalori Kartı
-          _buildCalorieCard(state.totalCalories, state.selectedDate),
+          _buildCalorieCard(
+            state.totalCalories,
+            state.targetCalories,
+            state.selectedDate,
+          ),
 
           const SizedBox(height: 10),
 
@@ -159,26 +209,116 @@ class _FitnessTrackerPageState extends ConsumerState<FitnessTrackerPage> {
     );
   }
 
-  Widget _buildCalorieCard(int totalCalories, DateTime date) {
+  Widget _buildCalorieCard(
+    int totalCalories,
+    int targetCalories,
+    DateTime date,
+  ) {
+    // İlerleme oranını hesapla (0.0 ile 1.0 arasında olmalı)
+    double progress = 0.0;
+    if (targetCalories > 0) {
+      progress = totalCalories / targetCalories;
+    }
+
+    // Hedef aşıldı mı?
+    final bool isOverLimit = totalCalories > targetCalories;
+    // Renk belirleme: Aşıldıysa kırmızı, değilse (veya tamamsa) yeşil tonları
+    final Color progressColor = isOverLimit
+        ? Colors.redAccent
+        : Colors.greenAccent;
+    final Color backgroundColor = Colors.grey.shade700;
+
     return Card(
       color: Colors.blueGrey.shade800,
       margin: const EdgeInsets.all(16),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(20.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              '${DateFormat('dd MMMM yyyy').format(date)} Alınan Kalori',
-              style: const TextStyle(color: Colors.white70, fontSize: 14),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  DateFormat(
+                    'dd MMMM yyyy',
+                    'tr_TR',
+                  ).format(date), // Tarih formatı
+                  style: const TextStyle(color: Colors.white70, fontSize: 14),
+                ),
+                // 👇 TIKLANABİLİR HEDEF ALANI
+                InkWell(
+                  onTap: () {
+                    _showEditTargetDialog(context, targetCalories);
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.white24),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.edit, size: 12, color: Colors.grey),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Hedef: $targetCalories',
+                          style: TextStyle(
+                            color: Colors.grey[400],
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  '$totalCalories',
+                  style: TextStyle(
+                    color: progressColor,
+                    fontSize: 36,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const Padding(
+                  padding: EdgeInsets.only(bottom: 6, left: 4),
+                  child: Text(
+                    'Kcal',
+                    style: TextStyle(color: Colors.white54, fontSize: 16),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            // --- PROGRESS BAR ---
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: LinearProgressIndicator(
+                value: progress.clamp(0.0, 1.0), // 1.0'ı geçmemesi için clamp
+                backgroundColor: backgroundColor,
+                valueColor: AlwaysStoppedAnimation<Color>(progressColor),
+                minHeight: 12,
+              ),
             ),
             const SizedBox(height: 8),
             Text(
-              '$totalCalories Kcal',
-              style: const TextStyle(
-                color: Colors.amberAccent,
-                fontSize: 32,
-                fontWeight: FontWeight.bold,
+              isOverLimit
+                  ? '${totalCalories - targetCalories} kcal fazlanız var!'
+                  : '${targetCalories - totalCalories} kcal daha alabilirsiniz.',
+              style: TextStyle(
+                color: isOverLimit ? Colors.red[200] : Colors.green[200],
+                fontSize: 12,
+                fontStyle: FontStyle.italic,
               ),
             ),
           ],

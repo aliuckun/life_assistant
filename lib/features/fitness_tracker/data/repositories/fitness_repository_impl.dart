@@ -9,6 +9,7 @@ class FitnessRepositoryImpl implements FitnessRepository {
   static const String _foodBoxName = 'food_entries';
   static const String _weightBoxName = 'weight_entries';
   static const String _workoutBoxName = 'workout_entries';
+  static const String _settingsBoxName = 'settings'; // Yeni kutu adı
 
   // 🔥 HIVE BOX'LARI
   Box<FoodEntry>? _foodBox;
@@ -68,6 +69,22 @@ class FitnessRepositoryImpl implements FitnessRepository {
     return filteredList.sublist(start, end);
   }
 
+  // fitness_repository_impl.dart implementasyonu:
+  @override
+  Future<List<FoodEntry>> getFoodEntriesByDateRange(
+    DateTime start,
+    DateTime end,
+  ) async {
+    if (_foodBox == null || !_foodBox!.isOpen) await _initBoxes();
+
+    // Sadece tarih aralığına uyanları belleğe al (Hala tüm value'ları iterate eder ama daha güvenlidir)
+    // Hive'da çok büyük veriler için "LazyBox" kullanmak daha iyidir ama şimdilik bu yeterli.
+    return _foodBox!.values.where((entry) {
+      return entry.date.isAfter(start) &&
+          entry.date.isBefore(end.add(const Duration(days: 1)));
+    }).toList();
+  }
+
   @override
   Future<List<FoodEntry>> getAllFoodEntries() async {
     if (_foodBox == null || !_foodBox!.isOpen) {
@@ -124,6 +141,19 @@ class FitnessRepositoryImpl implements FitnessRepository {
 
     // 🔥 ID ile kaydı sil
     await _foodBox!.delete(id);
+  }
+
+  @override
+  Future<void> saveTargetCalories(int target) async {
+    final box = await Hive.openBox(_settingsBoxName);
+    await box.put('targetCalories', target);
+  }
+
+  @override
+  Future<int> getTargetCalories() async {
+    final box = await Hive.openBox(_settingsBoxName);
+    // Kayıt yoksa varsayılan olarak 2000 döndür
+    return box.get('targetCalories', defaultValue: 2000);
   }
 
   // ------------------------- KİLO İŞLEMLERİ -------------------------

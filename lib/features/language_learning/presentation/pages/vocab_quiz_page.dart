@@ -19,7 +19,9 @@ class _VocabQuizPageState extends ConsumerState<VocabQuizPage> {
   bool locked = false;
   String? feedbackMessage;
 
-  // Ses ve Efekt Kontrolcüsü
+  // *** YENİ: Quiz'e özel tam liste ***
+  List<VocabularyWord> _quizPool = [];
+
   late final QuizEffectsController effects;
 
   @override
@@ -28,28 +30,30 @@ class _VocabQuizPageState extends ConsumerState<VocabQuizPage> {
     effects = QuizEffectsController();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      // Önce veritabanının açık olduğundan emin olalım
       ref.read(vocabularyControllerProvider.notifier).init().then((_) {
-        _nextQuestion();
+        _loadAllWordsAndStart(); // <--- DEĞİŞİKLİK BURADA
       });
     });
   }
 
-  @override
-  void dispose() {
-    effects.dispose();
-    super.dispose();
+  // Yeni Başlatma Fonksiyonu
+  void _loadAllWordsAndStart() {
+    final ctrl = ref.read(vocabularyControllerProvider.notifier);
+
+    // Controller'dan sadece 10 taneyi değil, HEPSİNİ istiyoruz
+    final allWords = ctrl.getQuizPool();
+
+    setState(() {
+      _quizPool = allWords; // Havuzu doldur
+    });
+
+    _nextQuestion();
   }
 
-  // ---------------------------------------------------------------------------
-  // SORU SEÇME (Spaced Repetition Mantığı)
-  // ---------------------------------------------------------------------------
   void _nextQuestion() {
-    // 1. Havuzu Yükle
-    final ctrl = ref.read(vocabularyControllerProvider.notifier);
-    // NOT: ctrl.loaded getter'ının güncel listeyi verdiğinden emin olun.
-    final pool = ctrl.loaded;
-
-    if (pool.isEmpty) {
+    // ARTIK 'ctrl.loaded' YERİNE '_quizPool' KULLANIYORUZ
+    if (_quizPool.isEmpty) {
       setState(() {
         current = null;
         options = [];
@@ -57,28 +61,23 @@ class _VocabQuizPageState extends ConsumerState<VocabQuizPage> {
       return;
     }
 
-    // 2. Sıralama: Hiç çözülmemişler (null) veya tarihi en eski olanlar başa gelir.
-    // Tarihi "Bugün" olanlar (az önce çözdükleriniz) en sona gider.
-    final sorted = [...pool]
+    // Sıralama mantığı aynı, sadece kaynak değişti (_quizPool)
+    final sorted = [..._quizPool]
       ..sort((a, b) {
         final t1 = a.lastReviewed;
         final t2 = b.lastReviewed;
-
-        if (t1 == null && t2 != null) return -1; // t1 öncelikli
-        if (t1 != null && t2 == null) return 1; // t2 öncelikli
+        if (t1 == null && t2 != null) return -1;
+        if (t1 != null && t2 == null) return 1;
         if (t1 == null && t2 == null) return 0;
-        return t1!.compareTo(t2!); // Eskiden yeniye sırala
+        return t1!.compareTo(t2!);
       });
 
-    // İlk 20 aday arasından seçim yap (Aşırı tekrarı önlemek için havuz genişletildi)
     final candidateCount = min(20, sorted.length);
     final candidates = sorted.take(candidateCount).toList();
 
-    // 3. Ağırlıklı Rastgele Seçim
     VocabularyWord pickWeighted() {
+      // (Ağırlık hesaplama kodu aynen kalıyor...)
       double weight(VocabularyWord w) {
-        // Eğer hiç çözülmediyse (null) çok yüksek ağırlık ver (9000+)
-        // Çözüldüyse geçen gün sayısı kadar ağırlık ver.
         final days = DateTime.now()
             .difference(w.lastReviewed ?? DateTime(2000))
             .inDays;
@@ -89,7 +88,6 @@ class _VocabQuizPageState extends ConsumerState<VocabQuizPage> {
       if (total <= 0) return candidates.first;
 
       double r = Random().nextDouble() * total;
-
       for (final w in candidates) {
         r -= weight(w);
         if (r <= 0) return w;
@@ -99,15 +97,14 @@ class _VocabQuizPageState extends ConsumerState<VocabQuizPage> {
 
     final correct = pickWeighted();
 
-    // Yanlış şıkları seç
+    // Yanlış şıkları seçerken de _quizPool kullanıyoruz
     final rnd = Random();
     final wrongs = <String>{};
-    // Sonsuz döngüye girmemesi için güvenlik limiti (100 deneme)
     int safety = 0;
     while (wrongs.length < 3 &&
-        wrongs.length < pool.length - 1 &&
+        wrongs.length < _quizPool.length - 1 &&
         safety < 100) {
-      final candidate = pool[rnd.nextInt(pool.length)];
+      final candidate = _quizPool[rnd.nextInt(_quizPool.length)];
       if (candidate.turkish != correct.turkish) {
         wrongs.add(candidate.turkish);
       }
@@ -126,9 +123,6 @@ class _VocabQuizPageState extends ConsumerState<VocabQuizPage> {
     }
   }
 
-  // ---------------------------------------------------------------------------
-  // CEVAP VE GÜNCELLEME
-  // ---------------------------------------------------------------------------
   Future<void> _answer(String ans) async {
     if (locked) return;
     locked = true;
@@ -140,47 +134,46 @@ class _VocabQuizPageState extends ConsumerState<VocabQuizPage> {
       feedbackMessage = good ? 'Doğru!' : 'Yanlış\nDoğru: $correct';
     });
 
-    // --- SES VE EFEKTLER ---
     if (good) {
       await effects.onCorrect();
     } else {
       await effects.onWrong();
     }
 
-    // --- VERİTABANI GÜNCELLEMESİ (SORUNUN ÇÖZÜMÜ BURADA) ---
+    // GÜNCELLEME MANTIĞI:
+    // Doğru bildiğinde hem veritabanını hem de elimizdeki _quizPool'u güncellemeliyiz
+    // ki bir sonraki soruda bu kelime en sona gitsin.
     if (good && current != null) {
       final ctrl = ref.read(vocabularyControllerProvider.notifier);
+      final updated = current!.copyWith(lastReviewed: DateTime.now());
 
-      // String karşılaştırmalarında .trim() ve lowercase kullanarak hata payını azaltıyoruz.
-      final index = ctrl.loaded.indexWhere(
-        (w) =>
-            w.german.trim() == current!.german.trim() &&
-            w.turkish.trim() == current!.turkish.trim(),
+      // 1. Veritabanını güncelle (Index bulmaya gerek yok, repo anahtar kelime/id ile bulmalı ama senin yapında global index kullanıyorduk)
+      // DİKKAT: Senin yapında updateAtListIndex listedeki sıraya göre çalışıyordu.
+      // Ancak _quizPool karışık olduğu için Repository'de 'update' metodun muhtemelen index değil KEY veya ID beklemeli.
+      // Eğer ID yoksa, kelimenin kendisini bulup değiştirmemiz lazım.
+
+      // Geçici Çözüm (Senin mevcut yapına uygun):
+      // DB'deki gerçek indexini bulmamız lazım.
+      // Bu biraz maliyetli ama 100-500 kelime için sorun olmaz.
+      final globalIndex = ctrl.getQuizPool().indexWhere(
+        (w) => w.german == current!.german,
       );
 
-      if (index != -1) {
-        debugPrint(
-          "✅ Kelime bulundu (Index: $index). Güncelleniyor: ${current!.german}",
-        );
+      if (globalIndex != -1) {
+        await ctrl.updateAtListIndex(globalIndex, updated);
 
-        final updated = current!.copyWith(lastReviewed: DateTime.now());
-
-        // State ve DB güncellemesi
-        await ctrl.updateAtListIndex(index, updated);
-      } else {
-        debugPrint(
-          "⚠️ HATA: Kelime listede bulunamadı! Güncelleme yapılamadı. Aranan: ${current!.german}",
+        // 2. Yerel Quiz Havuzunu Güncelle (Önemli! Yoksa quiz bitene kadar eski tarihli kalır)
+        final localIndex = _quizPool.indexWhere(
+          (w) => w.german == current!.german,
         );
-        // Buraya düşüyorsa 'current' ile listedeki veri arasında fark vardır (boşluk, harf hatası vb).
+        if (localIndex != -1) {
+          _quizPool[localIndex] = updated;
+        }
       }
     }
 
     if (!mounted) return;
-
-    // Kullanıcının geri bildirimi görmesi için bekleme
     await Future.delayed(const Duration(milliseconds: 700));
-
-    // Bir sonraki soruya geç
     _nextQuestion();
   }
 
