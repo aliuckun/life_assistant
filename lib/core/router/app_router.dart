@@ -8,9 +8,10 @@ import 'package:life_assistant/features/distraction_timer/presentation/pages/dis
 import 'package:life_assistant/features/fitness_tracker/presentation/pages/fitness_tracker_page.dart';
 import 'package:life_assistant/features/agenda/presentation/pages/agenda_page.dart';
 import 'package:life_assistant/features/language_learning/presentation/pages/language_learning_page.dart';
-// 🚨 YENİ IMPORT'LAR - Alt sayfalar için
 import 'package:life_assistant/features/language_learning/presentation/pages/vocabulary_page.dart';
 import 'package:life_assistant/features/language_learning/presentation/pages/vocab_quiz_page.dart';
+// 🚨 YENİ IMPORT - Günlük Planlayıcı
+import 'package:life_assistant/features/daily_planner/presentation/pages/daily_planner_page.dart';
 
 class AppRouter {
   static final GoRouter router = GoRouter(
@@ -81,14 +82,13 @@ class AppRouter {
               ),
             ],
           ),
-          // 🚨 DİL ÖĞRENME (Index 6) - ALT ROUTE'LAR EKLENDİ
+          // DİL ÖĞRENME (Index 6)
           StatefulShellBranch(
             routes: [
               GoRoute(
                 path: '/language',
                 pageBuilder: (context, state) =>
                     const NoTransitionPage(child: LanguageLearningPage()),
-                // Alt route'lar buraya eklendi
                 routes: [
                   GoRoute(
                     path: 'library',
@@ -99,6 +99,16 @@ class AppRouter {
                     builder: (context, state) => const VocabQuizPage(),
                   ),
                 ],
+              ),
+            ],
+          ),
+          // 🚨 YENİ BRANCH - GÜNLÜK PLANLAYICI (Index 7)
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/planner',
+                pageBuilder: (context, state) =>
+                    const NoTransitionPage(child: DailyPlannerPage()),
               ),
             ],
           ),

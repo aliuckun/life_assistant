@@ -24,6 +24,11 @@ const List<PageData> allMainPages = [
     icon: Icons.calendar_today,
   ),
   PageData(path: '/language', title: 'Dil Öğrenme', icon: Icons.language),
+  PageData(
+    path: '/planner',
+    title: 'Gunluk Plan',
+    icon: Icons.bookmarks_outlined,
+  ),
 ];
 
 // allPages listesi artık sadece main sayfaları içerir
