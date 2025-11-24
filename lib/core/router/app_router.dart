@@ -13,6 +13,8 @@ import 'package:life_assistant/features/language_learning/presentation/pages/voc
 // 🚨 YENİ IMPORT - Günlük Planlayıcı
 import 'package:life_assistant/features/daily_planner/presentation/pages/daily_planner_page.dart';
 
+import 'package:life_assistant/features/step_counter/presentation/pages/step_counter_page.dart';
+
 class AppRouter {
   static final GoRouter router = GoRouter(
     initialLocation: '/home',
@@ -109,6 +111,16 @@ class AppRouter {
                 path: '/planner',
                 pageBuilder: (context, state) =>
                     const NoTransitionPage(child: DailyPlannerPage()),
+              ),
+            ],
+          ),
+          // 🚨 YENİ BRANCH - GÜNLÜK PLANLAYICI (Index 7)
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/steps',
+                pageBuilder: (context, state) =>
+                    const NoTransitionPage(child: StepCounterPage()),
               ),
             ],
           ),

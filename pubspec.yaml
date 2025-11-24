@@ -23,9 +23,14 @@ dependencies:
   file_picker: ^8.1.4  # Dosya seçme penceresi açmak için
   csv: ^6.0.0          # Seçilen CSV dosyasını anlamlı veriye çevirmek için
 
+  # Adım Sayar ve Sensörler
+  pedometer: ^4.0.0        # Telefonun adım sensörüne erişim
+  permission_handler: ^11.3.0 # İzinleri (Activity Recognition) istemek için
+
   # UUID
   uuid: ^4.2.2
   intl: ^0.18.0
+  fl_chart: ^0.66.0        # Çubuk grafikler (Bar Chart) için
 
   # Routing
   go_router: ^13.2.0

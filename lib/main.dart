@@ -20,6 +20,8 @@ import 'features/language_learning/domain/vocabulary_word_adapter.dart';
 
 import 'features/daily_planner/domain/plan_models.dart';
 
+import 'features/step_counter/domain/step_model.dart';
+
 const String appId = String.fromEnvironment(
   'APP_ID',
   defaultValue: 'default-app-id',
@@ -90,9 +92,17 @@ Future<void> main() async {
   // language_learning, adaptör kaydı kısmına:
   try {
     Hive.registerAdapter(PlanItemAdapter());
-    debugPrint('✅ Vocabulary adapter registered');
+    debugPrint('✅ daily planner adapter registered');
   } catch (e) {
-    debugPrint('❌ Vocabulary adapter registration error: $e');
+    debugPrint('❌ daily planner adapter registration error: $e');
+  }
+
+  // language_learning, adaptör kaydı kısmına:
+  try {
+    Hive.registerAdapter(DailyStepsAdapter());
+    debugPrint('✅ step counter adapter registered');
+  } catch (e) {
+    debugPrint('❌ step counter adapter registration error: $e');
   }
 
   // 🔔 Bildirim servisini başlat

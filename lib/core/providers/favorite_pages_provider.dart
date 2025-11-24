@@ -27,8 +27,9 @@ const List<PageData> allMainPages = [
   PageData(
     path: '/planner',
     title: 'Gunluk Plan',
-    icon: Icons.bookmarks_outlined,
+    icon: Icons.calendar_today_rounded,
   ),
+  PageData(path: '/steps', title: 'Adım', icon: Icons.blind),
 ];
 
 // allPages listesi artık sadece main sayfaları içerir
