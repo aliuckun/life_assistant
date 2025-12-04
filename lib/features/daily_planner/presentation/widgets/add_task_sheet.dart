@@ -20,9 +20,17 @@ class _AddTaskSheetState extends State<AddTaskSheet> {
   final titleController = TextEditingController();
   final descController = TextEditingController();
 
+  @override
+  void dispose() {
+    titleController.dispose();
+    descController.dispose();
+    super.dispose();
+  }
+
   TimeOfDay selectedStart = TimeOfDay.now();
   TimeOfDay selectedEnd = TimeOfDay.now().replacing(
-    hour: TimeOfDay.now().hour + 1,
+    // 24'e bölümünden kalanı alarak 23'ten sonra 0'a dönmesini sağlıyoruz
+    hour: (TimeOfDay.now().hour + 1) % 24,
   );
   PlanCategory selectedCategory = PlannerConstants.categories[0];
   PlanPriority selectedPriority = PlanPriority.medium;
@@ -116,39 +124,80 @@ class _AddTaskSheetState extends State<AddTaskSheet> {
   }
 
   Widget _buildTextFields() {
+    // Ortak stil tanımları (Kod tekrarını önlemek ve tutarlılık için)
+    final inputDecorationTheme = InputDecoration(
+      filled: true,
+      // Daha belirgin bir arka plan rengi (Açık Gri)
+      fillColor: const Color(0xFFF3F4F6),
+
+      // Yazı yazılmıyorken görünen kenarlık (Hafif gri çizgi)
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: BorderSide(color: Colors.grey.shade300, width: 1),
+      ),
+
+      // Yazı yazılırken (tıklanınca) görünen kenarlık (Siyah ve belirgin)
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: const BorderSide(color: Colors.black87, width: 1.5),
+      ),
+
+      // Hata durumunda
+      errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: const BorderSide(color: Colors.redAccent, width: 1),
+      ),
+
+      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+
+      // Label (Etiket) stili
+      labelStyle: TextStyle(
+        color: Colors.grey.shade600,
+        fontWeight: FontWeight.w500,
+      ),
+
+      // İkon rengi
+      prefixIconColor: Colors.grey.shade700,
+    );
+
+    // Yazılan metnin stili
+    const textStyle = TextStyle(
+      color: Colors.black87, // Koyu siyah
+      fontSize: 16,
+      fontWeight: FontWeight.w600, // Biraz kalın, okunabilir
+    );
+
     return Column(
       children: [
+        // BAŞLIK ALANI
         TextField(
           controller: titleController,
-          // textInputAction: Enter'a basınca bir sonrakine geçer
           textInputAction: TextInputAction.next,
-          decoration: InputDecoration(
+          style: textStyle, // Yazı rengini uygula
+          cursorColor: Colors.black, // İmleç rengi
+          decoration: inputDecorationTheme.copyWith(
             labelText: 'Plan Başlığı',
             hintText: 'Örn: Raporu Hazırla',
-            filled: true,
-            fillColor: Colors.grey[50],
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
-              borderSide: BorderSide.none,
-            ),
-            prefixIcon: const Icon(Icons.title),
+            hintStyle: TextStyle(color: Colors.grey.shade400),
+            prefixIcon: const Icon(Icons.title_rounded),
           ),
         ),
+
         const SizedBox(height: 16),
+
+        // NOTLAR ALANI
         TextField(
           controller: descController,
           maxLines: 3,
           textInputAction: TextInputAction.done,
-          decoration: InputDecoration(
+          style: textStyle, // Yazı rengini uygula
+          cursorColor: Colors.black,
+          decoration: inputDecorationTheme.copyWith(
             labelText: 'Notlar',
-            filled: true,
-            fillColor: Colors.grey[50],
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
-              borderSide: BorderSide.none,
-            ),
-            prefixIcon: const Icon(Icons.notes),
-            alignLabelWithHint: true,
+            hintText: 'Detayları buraya ekle...',
+            hintStyle: TextStyle(color: Colors.grey.shade400),
+            prefixIcon: const Icon(Icons.notes_rounded),
+            alignLabelWithHint: true, // İkonu yukarı hizalar
           ),
         ),
       ],

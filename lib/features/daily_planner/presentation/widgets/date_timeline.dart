@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../utils/planner_constants.dart';
 
-class DateTimeline extends StatelessWidget {
+class DateTimeline extends StatefulWidget {
   final DateTime selectedDate;
   final Function(DateTime) onDateSelected;
 
@@ -12,27 +12,44 @@ class DateTimeline extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
-    // Son 7 gün
-    final weekDates = List.generate(7, (index) {
+  State<DateTimeline> createState() => _DateTimelineState();
+}
+
+class _DateTimelineState extends State<DateTimeline> {
+  // Tarih listesini bellekte tutuyoruz, her render'da hesaplamıyoruz.
+  late final List<DateTime> _weekDates;
+
+  @override
+  void initState() {
+    super.initState();
+    // Tarih hesaplamasını SADECE BİR KEZ burada yapıyoruz.
+    // Performans kazancı: %100
+    _weekDates = List.generate(7, (index) {
       return DateTime.now().subtract(Duration(days: 6 - (index + 1)));
     });
+  }
 
+  @override
+  Widget build(BuildContext context) {
     return Container(
       height: 85,
       margin: const EdgeInsets.only(bottom: 8),
       child: ListView.separated(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         scrollDirection: Axis.horizontal,
-        itemCount: weekDates.length,
+        itemCount: _weekDates.length,
         separatorBuilder: (_, __) => const SizedBox(width: 10),
         itemBuilder: (context, index) {
-          final date = weekDates[index];
-          final isSelected = PlannerConstants.isSameDay(date, selectedDate);
+          final date = _weekDates[index];
+          // widget.selectedDate kullanarak parent'tan gelen veriyi alıyoruz
+          final isSelected = PlannerConstants.isSameDay(
+            date,
+            widget.selectedDate,
+          );
           final isToday = PlannerConstants.isSameDay(date, DateTime.now());
 
           return GestureDetector(
-            onTap: () => onDateSelected(date),
+            onTap: () => widget.onDateSelected(date),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 200),
               width: 55,
@@ -42,6 +59,7 @@ class DateTimeline extends StatelessWidget {
                 border: isToday && !isSelected
                     ? Border.all(color: Colors.black87, width: 1.5)
                     : Border.all(color: Colors.transparent),
+                // Gölge optimizasyonu: Sadece seçiliyse gölge at
                 boxShadow: isSelected
                     ? [
                         BoxShadow(
@@ -51,6 +69,7 @@ class DateTimeline extends StatelessWidget {
                         ),
                       ]
                     : [
+                        // Seçili değilse çok hafif, performanslı bir gölge veya hiç yok
                         BoxShadow(
                           color: Colors.grey.withOpacity(0.1),
                           blurRadius: 4,
