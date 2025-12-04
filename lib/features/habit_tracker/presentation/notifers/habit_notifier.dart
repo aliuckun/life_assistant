@@ -130,8 +130,8 @@ class HabitNotifier extends StateNotifier<HabitTrackerState> {
     // 🔔 BİLDİRİM EKLEME
     // Eğer kullanıcı bildirim istiyorsa ve saat seçiliyse planla
     if (habit.enableNotification && habit.notificationTime != null) {
-      await _notificationService.scheduleDailyHabitNotification(
-        id: habit.id.hashCode, // String ID'yi int'e çeviriyoruz
+      await _notificationService.scheduleHabitWithWorkManager(
+        id: habit.id.hashCode,
         title: "Hatırlatıcı: ${habit.name}",
         body: "Alışkanlığını tamamlama vakti geldi! 🔥",
         time: habit.notificationTime!,
@@ -159,7 +159,7 @@ class HabitNotifier extends StateNotifier<HabitTrackerState> {
 
     // 2. Eğer bildirim hala aktifse ve saat varsa yeniden kur
     if (habit.enableNotification && habit.notificationTime != null) {
-      await _notificationService.scheduleDailyHabitNotification(
+      await _notificationService.scheduleHabitWithWorkManager(
         id: habit.id.hashCode,
         title: "Hatırlatıcı: ${habit.name}",
         body: "Alışkanlığını tamamlama vakti geldi! 🔥",

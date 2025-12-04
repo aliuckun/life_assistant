@@ -171,7 +171,45 @@ class _StepCounterView extends StatelessWidget {
       BarChartData(
         alignment: BarChartAlignment.spaceAround,
         maxY: 15000,
-        barTouchData: BarTouchData(enabled: false), // Dokunma efekti kapalı
+        // -----------------------------------------------------------------
+        // GÜNCELLEME: Dokunma özellikleri (Touch Data) aktif edildi
+        // -----------------------------------------------------------------
+        barTouchData: BarTouchData(
+          enabled: true, // Artık dokunulabilir!
+          touchTooltipData: BarTouchTooltipData(
+            // Tooltip arka plan rengi (Koyu gri/Mavi tonu modern durur)
+            tooltipBgColor: Colors.blueGrey.shade900,
+            tooltipPadding: const EdgeInsets.all(8),
+            tooltipMargin: 8,
+            // Tooltip'in ne kadar yuvarlak olacağı
+            getTooltipItem: (group, groupIndex, rod, rodIndex) {
+              // Hangi veriye tıklandığını bulalım
+              final dailyData = controller.history[group.x.toInt()];
+              final dateStr = DateFormat('d MMM').format(dailyData.date);
+              final stepsStr = NumberFormat('#,###').format(dailyData.steps);
+
+              return BarTooltipItem(
+                // Baloncuk içindeki yazı
+                '$dateStr\n',
+                const TextStyle(
+                  color: Colors.white70,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                ),
+                children: <TextSpan>[
+                  TextSpan(
+                    text: '$stepsStr Adım',
+                    style: const TextStyle(
+                      color: Colors.white, // Sayı daha parlak beyaz
+                      fontSize: 14,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
         titlesData: FlTitlesData(
           show: true,
           bottomTitles: AxisTitles(
@@ -179,7 +217,7 @@ class _StepCounterView extends StatelessWidget {
               showTitles: true,
               getTitlesWidget: (double value, TitleMeta meta) {
                 int index = value.toInt();
-                // Sadece 5 günde bir tarih yaz
+                // Sadece 5 günde bir tarih yaz (Kalabalığı önlemek için)
                 if (index >= 0 &&
                     index < controller.history.length &&
                     index % 5 == 0) {
@@ -217,9 +255,15 @@ class _StepCounterView extends StatelessWidget {
             barRods: [
               BarChartRodData(
                 toY: data.steps.toDouble(),
+                // Bugün turuncu, diğer günler mavi, ama üzerine basılırsa renk değişimi
+                // fl_chart bunu otomatik handle edebilir veya gradient kullanabiliriz.
+                // Şimdilik sade tutuyoruz.
                 color: isToday ? Colors.orange : Colors.blue.shade200,
-                width: 6,
-                borderRadius: BorderRadius.circular(4),
+                width:
+                    12, // Çubukları biraz daha kalınlaştırdım, basması kolay olsun
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(4),
+                ),
                 backDrawRodData: BackgroundBarChartRodData(
                   show: true,
                   toY: 15000,

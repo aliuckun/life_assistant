@@ -15,7 +15,7 @@ class DateTimeline extends StatelessWidget {
   Widget build(BuildContext context) {
     // Son 7 gün
     final weekDates = List.generate(7, (index) {
-      return DateTime.now().subtract(Duration(days: 6 - index));
+      return DateTime.now().subtract(Duration(days: 6 - (index + 1)));
     });
 
     return Container(
