@@ -29,356 +29,356 @@ class _AddTaskSheetState extends State<AddTaskSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    // Klavye açılınca ekran boyutu değişse bile sayfanın toplam yüksekliğini sabitliyoruz.
+    // Bu sayede klavye animasyonu sırasında tüm sayfa titremez.
+    return SizedBox(
       height: MediaQuery.of(context).size.height * 0.85,
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
-      ),
-      child: Column(
-        children: [
-          // Tutamaç
-          Center(
-            child: Container(
-              margin: const EdgeInsets.only(top: 12, bottom: 20),
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.grey[300],
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-          ),
+      child: DecoratedBox(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+        ),
+        child: Column(
+          children: [
+            // Tutamaç ve Header
+            _SheetHeader(date: widget.selectedDate),
 
-          // Başlık
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
-            child: Row(
-              children: [
-                const Text(
-                  'Yeni Plan',
-                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-                ),
-                const Spacer(),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.grey[100],
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(
-                        Icons.calendar_today,
-                        size: 14,
-                        color: Colors.grey,
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        '${widget.selectedDate.day}.${widget.selectedDate.month}.${widget.selectedDate.year}',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          Expanded(
-            child: ListView(
-              padding: const EdgeInsets.all(24),
-              children: [
-                // Kategori Seçimi
-                const Text(
-                  'Kategori',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: Colors.grey,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                SizedBox(
-                  height: 90,
-                  child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: PlannerConstants.categories.length,
-                    separatorBuilder: (_, __) => const SizedBox(width: 12),
-                    itemBuilder: (context, index) {
-                      final cat = PlannerConstants.categories[index];
-                      final isSelected = selectedCategory.name == cat.name;
-                      return GestureDetector(
-                        onTap: () => setState(() => selectedCategory = cat),
-                        child: Column(
-                          children: [
-                            AnimatedContainer(
-                              duration: const Duration(milliseconds: 200),
-                              padding: const EdgeInsets.all(16),
-                              decoration: BoxDecoration(
-                                color: isSelected
-                                    ? cat.color
-                                    : Colors.grey[100],
-                                shape: BoxShape.circle,
-                                boxShadow: isSelected
-                                    ? [
-                                        BoxShadow(
-                                          color: cat.color.withOpacity(0.4),
-                                          blurRadius: 8,
-                                          offset: const Offset(0, 4),
-                                        ),
-                                      ]
-                                    : [],
-                              ),
-                              child: Icon(
-                                cat.icon,
-                                color: isSelected
-                                    ? Colors.white
-                                    : Colors.grey[500],
-                                size: 24,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              cat.name,
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: isSelected
-                                    ? FontWeight.bold
-                                    : FontWeight.normal,
-                                color: isSelected
-                                    ? Colors.black87
-                                    : Colors.grey,
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.all(24),
+                // Klavye açılınca listenin zıplamasını önlemek için:
+                physics: const ClampingScrollPhysics(),
+                children: [
+                  // --- OPTİMİZASYON 1: Kategori Seçici Ayrıldı ---
+                  _CategorySelector(
+                    selectedCategory: selectedCategory,
+                    onCategoryChanged: (cat) {
+                      setState(() => selectedCategory = cat);
                     },
                   ),
-                ),
-                const SizedBox(height: 24),
+                  const SizedBox(height: 24),
 
-                // Text Fields
-                TextField(
-                  controller: titleController,
-                  decoration: InputDecoration(
-                    labelText: 'Plan Başlığı',
-                    hintText: 'Örn: Raporu Hazırla',
-                    filled: true,
-                    fillColor: Colors.grey[50],
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(16),
-                      borderSide: BorderSide.none,
-                    ),
-                    prefixIcon: const Icon(Icons.title),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: descController,
-                  maxLines: 3,
-                  decoration: InputDecoration(
-                    labelText: 'Notlar',
-                    filled: true,
-                    fillColor: Colors.grey[50],
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(16),
-                      borderSide: BorderSide.none,
-                    ),
-                    prefixIcon: const Icon(Icons.notes),
-                    alignLabelWithHint: true,
-                  ),
-                ),
-                const SizedBox(height: 24),
+                  // Text Fields
+                  _buildTextFields(),
+                  const SizedBox(height: 24),
 
-                // Zaman
-                const Text(
-                  'Zaman Aralığı',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: Colors.grey,
+                  // Zaman Seçici
+                  _TimeSection(
+                    start: selectedStart,
+                    end: selectedEnd,
+                    onStartChanged: (val) =>
+                        setState(() => selectedStart = val),
+                    onEndChanged: (val) => setState(() => selectedEnd = val),
                   ),
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _buildTimeSelector(
-                        'Başlangıç',
-                        selectedStart,
-                        (val) => setState(() => selectedStart = val),
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    const Icon(Icons.arrow_forward, color: Colors.grey),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: _buildTimeSelector(
-                        'Bitiş',
-                        selectedEnd,
-                        (val) => setState(() => selectedEnd = val),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 24),
+                  const SizedBox(height: 24),
 
-                // Öncelik
-                const Text(
-                  'Öncelik',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: Colors.grey,
+                  // --- OPTİMİZASYON 2: Öncelik Seçici Ayrıldı ---
+                  _PrioritySelector(
+                    selectedPriority: selectedPriority,
+                    onPriorityChanged: (p) {
+                      setState(() => selectedPriority = p);
+                    },
                   ),
-                ),
-                const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: BoxDecoration(
-                    color: Colors.grey[100],
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Row(
-                    children: PlanPriority.values.map((priority) {
-                      final isSelected = selectedPriority == priority;
-                      Color activeColor;
-                      String label;
-                      switch (priority) {
-                        case PlanPriority.low:
-                          activeColor = Colors.blueGrey;
-                          label = 'Düşük';
-                          break;
-                        case PlanPriority.medium:
-                          activeColor = Colors.orange;
-                          label = 'Orta';
-                          break;
-                        case PlanPriority.high:
-                          activeColor = Colors.red;
-                          label = 'Yüksek';
-                          break;
-                      }
-                      return Expanded(
-                        child: GestureDetector(
-                          onTap: () =>
-                              setState(() => selectedPriority = priority),
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 200),
-                            alignment: Alignment.center,
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            decoration: BoxDecoration(
-                              color: isSelected
-                                  ? Colors.white
-                                  : Colors.transparent,
-                              borderRadius: BorderRadius.circular(10),
-                              boxShadow: isSelected
-                                  ? [
-                                      BoxShadow(
-                                        color: Colors.black.withOpacity(0.05),
-                                        blurRadius: 4,
-                                      ),
-                                    ]
-                                  : [],
-                            ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                if (isSelected) ...[
-                                  Icon(
-                                    Icons.circle,
-                                    size: 8,
-                                    color: activeColor,
-                                  ),
-                                  const SizedBox(width: 6),
-                                ],
-                                Text(
-                                  label,
-                                  style: TextStyle(
-                                    fontWeight: isSelected
-                                        ? FontWeight.bold
-                                        : FontWeight.w500,
-                                    color: isSelected
-                                        ? Colors.black87
-                                        : Colors.grey[600],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                ),
-                const SizedBox(height: 100),
-              ],
-            ),
-          ),
 
-          // Kaydet Butonu
-          Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 10,
-                  offset: const Offset(0, -4),
-                ),
-              ],
-            ),
-            child: SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () {
-                  if (titleController.text.isNotEmpty) {
-                    final newItem = PlanItem(
-                      id: DateTime.now().millisecondsSinceEpoch
-                          .toString(), // ID benzersizliği
-                      title: titleController.text,
-                      description: descController.text,
-                      date: widget.selectedDate,
-                      startTimeInMinutes:
-                          selectedStart.hour * 60 + selectedStart.minute,
-                      endTimeInMinutes:
-                          selectedEnd.hour * 60 + selectedEnd.minute,
-                      categoryName: selectedCategory.name,
-                      priorityIndex: selectedPriority.index,
-                    );
-                    widget.onSaved(newItem);
-                    Navigator.pop(context);
-                  }
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.black87,
-                  padding: const EdgeInsets.symmetric(vertical: 18),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
+                  // Klavye açılınca en altta boşluk kalsın
+                  SizedBox(
+                    height: MediaQuery.of(context).viewInsets.bottom + 100,
                   ),
-                ),
-                child: const Text(
-                  'Planı Kaydet',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+                ],
               ),
             ),
-          ),
-        ],
+
+            // Kaydet Butonu (Sabit Alt Kısım)
+            _SaveButton(
+              onPressed: () {
+                if (titleController.text.isNotEmpty) {
+                  final newItem = PlanItem(
+                    id: DateTime.now().millisecondsSinceEpoch.toString(),
+                    title: titleController.text,
+                    description: descController.text,
+                    date: widget.selectedDate,
+                    startTimeInMinutes:
+                        selectedStart.hour * 60 + selectedStart.minute,
+                    endTimeInMinutes:
+                        selectedEnd.hour * 60 + selectedEnd.minute,
+                    categoryName: selectedCategory.name,
+                    priorityIndex: selectedPriority.index,
+                  );
+                  widget.onSaved(newItem);
+                  Navigator.pop(context);
+                }
+              },
+            ),
+          ],
+        ),
       ),
     );
   }
 
+  Widget _buildTextFields() {
+    return Column(
+      children: [
+        TextField(
+          controller: titleController,
+          // textInputAction: Enter'a basınca bir sonrakine geçer
+          textInputAction: TextInputAction.next,
+          decoration: InputDecoration(
+            labelText: 'Plan Başlığı',
+            hintText: 'Örn: Raporu Hazırla',
+            filled: true,
+            fillColor: Colors.grey[50],
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+              borderSide: BorderSide.none,
+            ),
+            prefixIcon: const Icon(Icons.title),
+          ),
+        ),
+        const SizedBox(height: 16),
+        TextField(
+          controller: descController,
+          maxLines: 3,
+          textInputAction: TextInputAction.done,
+          decoration: InputDecoration(
+            labelText: 'Notlar',
+            filled: true,
+            fillColor: Colors.grey[50],
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+              borderSide: BorderSide.none,
+            ),
+            prefixIcon: const Icon(Icons.notes),
+            alignLabelWithHint: true,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// -----------------------------------------------------------------------------
+// AŞAĞIDAKİ WIDGET'LAR AYRIŞTIRILARAK PERFORMANS ARTIRILDI
+// Flutter bunları "const" gibi işleyerek gereksiz render'ı önler.
+// -----------------------------------------------------------------------------
+
+class _CategorySelector extends StatelessWidget {
+  final PlanCategory selectedCategory;
+  final ValueChanged<PlanCategory> onCategoryChanged;
+
+  const _CategorySelector({
+    required this.selectedCategory,
+    required this.onCategoryChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Kategori',
+          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey),
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          height: 90,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: PlannerConstants.categories.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 12),
+            itemBuilder: (context, index) {
+              final cat = PlannerConstants.categories[index];
+              final isSelected = selectedCategory.name == cat.name;
+              return GestureDetector(
+                onTap: () => onCategoryChanged(cat),
+                child: Column(
+                  children: [
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: isSelected ? cat.color : Colors.grey[100],
+                        shape: BoxShape.circle,
+                        // Gölgeyi sadece seçiliyse çiz, performansı koru
+                        boxShadow: isSelected
+                            ? [
+                                BoxShadow(
+                                  color: cat.color.withOpacity(0.4),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ]
+                            : null,
+                      ),
+                      child: Icon(
+                        cat.icon,
+                        color: isSelected ? Colors.white : Colors.grey[500],
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      cat.name,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: isSelected
+                            ? FontWeight.bold
+                            : FontWeight.normal,
+                        color: isSelected ? Colors.black87 : Colors.grey,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _PrioritySelector extends StatelessWidget {
+  final PlanPriority selectedPriority;
+  final ValueChanged<PlanPriority> onPriorityChanged;
+
+  const _PrioritySelector({
+    required this.selectedPriority,
+    required this.onPriorityChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Öncelik',
+          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey),
+        ),
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.all(4),
+          decoration: BoxDecoration(
+            color: Colors.grey[100],
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            children: PlanPriority.values.map((priority) {
+              final isSelected = selectedPriority == priority;
+              Color activeColor;
+              String label;
+              switch (priority) {
+                case PlanPriority.low:
+                  activeColor = Colors.blueGrey;
+                  label = 'Düşük';
+                  break;
+                case PlanPriority.medium:
+                  activeColor = Colors.orange;
+                  label = 'Orta';
+                  break;
+                case PlanPriority.high:
+                  activeColor = Colors.red;
+                  label = 'Yüksek';
+                  break;
+              }
+              return Expanded(
+                child: GestureDetector(
+                  onTap: () => onPriorityChanged(priority),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    alignment: Alignment.center,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    decoration: BoxDecoration(
+                      color: isSelected ? Colors.white : Colors.transparent,
+                      borderRadius: BorderRadius.circular(10),
+                      boxShadow: isSelected
+                          ? [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.05),
+                                blurRadius: 4,
+                              ),
+                            ]
+                          : [],
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        if (isSelected) ...[
+                          Icon(Icons.circle, size: 8, color: activeColor),
+                          const SizedBox(width: 6),
+                        ],
+                        Text(
+                          label,
+                          style: TextStyle(
+                            fontWeight: isSelected
+                                ? FontWeight.bold
+                                : FontWeight.w500,
+                            color: isSelected
+                                ? Colors.black87
+                                : Colors.grey[600],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _TimeSection extends StatelessWidget {
+  final TimeOfDay start;
+  final TimeOfDay end;
+  final ValueChanged<TimeOfDay> onStartChanged;
+  final ValueChanged<TimeOfDay> onEndChanged;
+
+  const _TimeSection({
+    required this.start,
+    required this.end,
+    required this.onStartChanged,
+    required this.onEndChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Zaman Aralığı',
+          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: _buildTimeSelector(
+                context,
+                'Başlangıç',
+                start,
+                onStartChanged,
+              ),
+            ),
+            const SizedBox(width: 16),
+            const Icon(Icons.arrow_forward, color: Colors.grey),
+            const SizedBox(width: 16),
+            Expanded(
+              child: _buildTimeSelector(context, 'Bitiş', end, onEndChanged),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
   Widget _buildTimeSelector(
+    BuildContext context,
     String label,
     TimeOfDay time,
     Function(TimeOfDay) onSelected,
@@ -410,6 +410,112 @@ class _AddTaskSheetState extends State<AddTaskSheet> {
               style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SheetHeader extends StatelessWidget {
+  final DateTime date;
+  const _SheetHeader({required this.date});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Center(
+          child: Container(
+            margin: const EdgeInsets.only(top: 12, bottom: 20),
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: Colors.grey[300],
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Row(
+            children: [
+              const Text(
+                'Yeni Plan',
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+              ),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.grey[100],
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.calendar_today,
+                      size: 14,
+                      color: Colors.grey,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      '${date.day}.${date.month}.${date.year}',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SaveButton extends StatelessWidget {
+  final VoidCallback onPressed;
+  const _SaveButton({required this.onPressed});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, -4),
+          ),
+        ],
+      ),
+      child: SizedBox(
+        width: double.infinity,
+        child: ElevatedButton(
+          onPressed: onPressed,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.black87,
+            padding: const EdgeInsets.symmetric(vertical: 18),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+          ),
+          child: const Text(
+            'Planı Kaydet',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
         ),
       ),
     );

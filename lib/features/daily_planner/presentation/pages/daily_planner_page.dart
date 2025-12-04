@@ -32,16 +32,22 @@ class _DailyPlannerPageState extends State<DailyPlannerPage> {
     _loadPlans();
   }
 
-  // Seçili güne göre planları getir
+  // --- OPTİMİZE EDİLMİŞ VERİ YÜKLEME ---
+  // Sıralama işlemini setState dışına taşıdık.
   void _loadPlans() {
-    setState(() {
-      _currentPlans = _service.getPlansByDate(_selectedDate);
-      // Saate göre sırala
-      _currentPlans.sort(
-        (a, b) => a.startTimeInMinutes.compareTo(b.startTimeInMinutes),
-      );
-      _isLoading = false;
-    });
+    // 1. Veriyi çek
+    final plans = _service.getPlansByDate(_selectedDate);
+
+    // 2. Sıralamayı UI thread'ini kilitlemeden yap
+    plans.sort((a, b) => a.startTimeInMinutes.compareTo(b.startTimeInMinutes));
+
+    // 3. Sadece atama işlemi için setState kullan
+    if (mounted) {
+      setState(() {
+        _currentPlans = plans;
+        _isLoading = false;
+      });
+    }
   }
 
   double get _progress {
@@ -54,7 +60,7 @@ class _DailyPlannerPageState extends State<DailyPlannerPage> {
 
   void _addNewTask(PlanItem newItem) async {
     await _service.addPlan(newItem);
-    _loadPlans(); // Listeyi yenile
+    _loadPlans();
   }
 
   void _toggleTask(PlanItem plan) async {
@@ -75,6 +81,10 @@ class _DailyPlannerPageState extends State<DailyPlannerPage> {
     }
 
     return Scaffold(
+      // --- FPS DÜŞÜŞÜNÜ ENGELLEYEN KRİTİK AYAR ---
+      // Klavye açıldığında sayfanın yeniden boyutlanıp sıkışmasını engeller.
+      resizeToAvoidBottomInset: false,
+
       backgroundColor: const Color(0xFFF5F7FA),
       appBar: AppBar(
         title: const Column(
@@ -133,18 +143,27 @@ class _DailyPlannerPageState extends State<DailyPlannerPage> {
             isToday: PlannerConstants.isSameDay(_selectedDate, DateTime.now()),
           ),
 
-          // 3. Liste
+          // 3. Liste (Optimize Edildi)
           Expanded(
             child: _currentPlans.isEmpty
                 ? _buildEmptyState()
                 : ListView.builder(
                     padding: const EdgeInsets.fromLTRB(16, 0, 16, 80),
+                    // cacheExtent: Ekran dışında kalan öğeleri önceden yükleyerek
+                    // kaydırma (scroll) sırasında takılmaları azaltır.
+                    cacheExtent: 500,
                     itemCount: _currentPlans.length,
-                    itemBuilder: (context, index) => PlanTaskCard(
-                      plan: _currentPlans[index],
-                      onToggle: () => _toggleTask(_currentPlans[index]),
-                      onDelete: () => _deleteTask(_currentPlans[index].id),
-                    ),
+                    itemBuilder: (context, index) {
+                      final plan = _currentPlans[index];
+                      return PlanTaskCard(
+                        // Key kullanımı Flutter'ın hangi widget'ın değiştiğini
+                        // anlamasını kolaylaştırır ve gereksiz çizimi önler.
+                        key: ValueKey(plan.id),
+                        plan: plan,
+                        onToggle: () => _toggleTask(plan),
+                        onDelete: () => _deleteTask(plan.id),
+                      );
+                    },
                   ),
           ),
         ],
@@ -155,8 +174,16 @@ class _DailyPlannerPageState extends State<DailyPlannerPage> {
             context: context,
             isScrollControlled: true,
             backgroundColor: Colors.transparent,
-            builder: (context) =>
-                AddTaskSheet(selectedDate: _selectedDate, onSaved: _addNewTask),
+            // Klavye padding'ini bottom sheet içinde yönetmek daha sağlıklıdır
+            builder: (context) => Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).viewInsets.bottom,
+              ),
+              child: AddTaskSheet(
+                selectedDate: _selectedDate,
+                onSaved: _addNewTask,
+              ),
+            ),
           );
         },
         backgroundColor: Colors.black87,

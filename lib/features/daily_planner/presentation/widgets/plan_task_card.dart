@@ -17,9 +17,10 @@ class PlanTaskCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // DB'den gelen kategori ismiyle UI objesini bul
+    // NOT: Bu işlem çok ağırsa PlannerConstants içinde map (cache) yapısı kullanılmalı.
     final uiCategory = PlannerConstants.getCategoryByName(plan.categoryName);
 
-    bool isDone = plan.isCompleted;
+    final bool isDone = plan.isCompleted;
     Color priorityColor;
 
     switch (plan.priority) {
@@ -35,7 +36,8 @@ class PlanTaskCard extends StatelessWidget {
     }
 
     return Dismissible(
-      key: Key(plan.id),
+      // Key, ValueKey olarak verilmeli ki Flutter item'ı karıştırmasın
+      key: ValueKey(plan.id),
       direction: DismissDirection.endToStart,
       background: Container(
         margin: const EdgeInsets.only(bottom: 12),
@@ -57,19 +59,27 @@ class PlanTaskCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(20),
+          // --- PERFORMANS OPTİMİZASYONU ---
+          // BoxShadow listelerde çok FPS düşürür.
+          // Yerine çok hafif bir border kullanmak performansı uçurur.
+          border: Border.all(color: Colors.grey.withOpacity(0.2), width: 1),
+          // Eğer mutlaka gölge istiyorsan, bu kodu açabilirsin ama FPS düşebilir:
+          /*
           boxShadow: [
             BoxShadow(
               color: Colors.grey.withOpacity(0.05),
-              blurRadius: 10,
+              blurRadius: 5, // 10 yerine 5 daha hızlıdır
               offset: const Offset(0, 2),
             ),
           ],
+          */
         ),
         child: Material(
           color: Colors.transparent,
           borderRadius: BorderRadius.circular(20),
+          // Ripple efektinin taşmaması için:
+          clipBehavior: Clip.antiAlias,
           child: InkWell(
-            borderRadius: BorderRadius.circular(20),
             onTap: onToggle,
             child: Padding(
               padding: const EdgeInsets.all(16),
